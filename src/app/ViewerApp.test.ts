@@ -31,4 +31,12 @@ describe('ViewerApp', () => {
 
     expect(root.querySelectorAll('[data-orientation]').length).toBe(6);
   });
+
+  it('marks the shell as a viewport-filling layout', () => {
+    const root = document.createElement('div');
+
+    new ViewerApp(root);
+
+    expect(root.querySelector('.app-shell--viewport')).not.toBeNull();
+  });
 });

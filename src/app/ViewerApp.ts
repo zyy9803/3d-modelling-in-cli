@@ -38,7 +38,7 @@ export class ViewerApp {
 
   private render(): void {
     this.root.innerHTML = `
-      <div class="app-shell">
+      <div class="app-shell app-shell--viewport">
         <header class="topbar">
           <div>
             <h1>STL Web 预览器</h1>
