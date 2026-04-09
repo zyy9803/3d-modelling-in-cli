@@ -1,10 +1,8 @@
 import { MOUSE } from 'three';
 
-export type ControlMode = 'rotate' | 'pan';
-
-export function getMouseBindings(mode: ControlMode) {
+export function getDefaultMouseBindings() {
   return {
-    LEFT: mode === 'rotate' ? MOUSE.ROTATE : MOUSE.PAN,
+    LEFT: MOUSE.ROTATE,
     MIDDLE: MOUSE.PAN,
     RIGHT: null,
   };

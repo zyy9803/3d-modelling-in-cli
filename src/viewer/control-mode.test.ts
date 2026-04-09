@@ -1,14 +1,18 @@
 import { MOUSE } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { getMouseBindings } from './control-mode';
+import { getDefaultMouseBindings } from './control-mode';
 
-describe('getMouseBindings', () => {
-  it('maps the left mouse button to rotate in rotate mode', () => {
-    expect(getMouseBindings('rotate').LEFT).toBe(MOUSE.ROTATE);
+describe('getDefaultMouseBindings', () => {
+  it('binds the left mouse button to rotate', () => {
+    expect(getDefaultMouseBindings().LEFT).toBe(MOUSE.ROTATE);
   });
 
-  it('maps the left mouse button to pan in pan mode', () => {
-    expect(getMouseBindings('pan').LEFT).toBe(MOUSE.PAN);
+  it('binds the middle mouse button to pan', () => {
+    expect(getDefaultMouseBindings().MIDDLE).toBe(MOUSE.PAN);
+  });
+
+  it('disables the right mouse button binding', () => {
+    expect(getDefaultMouseBindings().RIGHT).toBeNull();
   });
 });

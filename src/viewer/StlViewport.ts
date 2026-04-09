@@ -15,7 +15,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 
 import { fitCameraToBounds, DEFAULT_CAMERA_DIRECTION, type CameraFitResult } from './camera-fit';
-import { getMouseBindings, type ControlMode } from './control-mode';
+import { getDefaultMouseBindings } from './control-mode';
 import { getClosestOrientationKey, getOrientationDirection, type OrientationKey } from './orientation-gizmo';
 
 type ViewportOptions = {
@@ -40,7 +40,6 @@ export class StlViewport {
   private container: HTMLElement | null = null;
   private mesh: Mesh | null = null;
   private currentFit: CameraFitResult | null = null;
-  private mode: ControlMode = 'rotate';
   private resizeObserver: ResizeObserver | null = null;
   private tween: CameraTween | null = null;
 
@@ -74,7 +73,7 @@ export class StlViewport {
     controls.enablePan = true;
     controls.enableRotate = true;
     this.controls = controls;
-    this.setMode(this.mode);
+    this.applyDefaultMouseBindings();
     controls.addEventListener('change', this.handleControlsChange);
 
     this.resize();
@@ -89,13 +88,12 @@ export class StlViewport {
     this.renderLoop();
   }
 
-  setMode(mode: ControlMode): void {
-    this.mode = mode;
+  private applyDefaultMouseBindings(): void {
     if (!this.controls) {
       return;
     }
 
-    const bindings = getMouseBindings(mode);
+    const bindings = getDefaultMouseBindings();
     this.controls.mouseButtons.LEFT = bindings.LEFT;
     this.controls.mouseButtons.MIDDLE = bindings.MIDDLE;
     this.controls.mouseButtons.RIGHT = bindings.RIGHT;
