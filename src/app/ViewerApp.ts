@@ -1,5 +1,4 @@
 import { createFileDropzone, isStlFile } from '../ui/FileDropzone';
-import { type OrientationKey, renderOrientationGizmo } from '../viewer/orientation-gizmo';
 import { StlViewport, type ViewportSelectionSummary } from '../viewer/StlViewport';
 
 const EMPTY_SELECTION_SUMMARY: ViewportSelectionSummary = {
@@ -9,7 +8,6 @@ const EMPTY_SELECTION_SUMMARY: ViewportSelectionSummary = {
 };
 
 export class ViewerApp {
-  private activeOrientation: OrientationKey | null = null;
   private viewport: StlViewport | null = null;
   private selectionSummary = EMPTY_SELECTION_SUMMARY;
   private readonly viewportPanel: HTMLElement;
@@ -37,7 +35,6 @@ export class ViewerApp {
 
     this.bindEvents();
     this.updateSelectionStatus(this.selectionSummary);
-    this.renderOrientationGizmo();
     this.mountViewport();
   }
 
@@ -120,16 +117,12 @@ export class ViewerApp {
     }
 
     this.viewport = new StlViewport({
-      onOrientationChange: (key) => {
-        this.activeOrientation = key;
-        this.renderOrientationGizmo();
-      },
       onSelectionChange: (summary) => {
         this.updateSelectionStatus(summary);
       },
     });
 
-    this.viewport.mount(this.viewportHost);
+    this.viewport.mount(this.viewportHost, this.orientationRoot);
   }
 
   private async handleFile(file: File | null): Promise<void> {
@@ -159,12 +152,6 @@ export class ViewerApp {
       console.error(error);
       this.showError('文件无法解析，请确认它是有效的 STL 文件');
     }
-  }
-
-  private renderOrientationGizmo(): void {
-    renderOrientationGizmo(this.orientationRoot, this.activeOrientation, (key) => {
-      this.viewport?.orientTo(key);
-    });
   }
 
   private updateSelectionStatus(summary: ViewportSelectionSummary): void {

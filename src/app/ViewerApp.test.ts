@@ -23,12 +23,13 @@ describe('ViewerApp', () => {
     expect(root.querySelector('[data-selection-status]')?.textContent).toContain('0');
   });
 
-  it('renders the orientation gizmo buttons', () => {
+  it('keeps the orientation anchor mounted but empty before a model is loaded', () => {
     const root = document.createElement('div');
 
     new ViewerApp(root);
 
-    expect(root.querySelectorAll('[data-orientation]').length).toBe(6);
+    expect(root.querySelector('[data-orientation-root]')).not.toBeNull();
+    expect(root.querySelector('[data-orientation-root]')?.childElementCount).toBe(0);
   });
 
   it('marks the shell as a viewport-filling layout', () => {

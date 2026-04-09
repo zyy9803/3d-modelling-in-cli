@@ -24,6 +24,7 @@ import { fitCameraToBounds, DEFAULT_CAMERA_DIRECTION, type CameraFitResult } fro
 import { getDefaultMouseBindings } from './control-mode';
 import { buildTriangleAdjacency, splitSelectionComponents } from './mesh-topology';
 import { getClosestOrientationKey, getOrientationDirection, type OrientationKey } from './orientation-gizmo';
+import { OrientationGizmoOverlay } from './orientation-gizmo-overlay';
 import {
   createSelectionContext,
   type SelectionComponentExport,
@@ -44,7 +45,6 @@ export type ViewportSelectionSummary = {
 };
 
 type ViewportOptions = {
-  onOrientationChange?: (key: OrientationKey) => void;
   onSelectionChange?: (summary: ViewportSelectionSummary) => void;
 };
 
@@ -91,6 +91,7 @@ export class StlViewport {
   private resizeObserver: ResizeObserver | null = null;
   private tween: CameraTween | null = null;
   private selectionBox: HTMLElement | null = null;
+  private orientationGizmo: OrientationGizmoOverlay | null = null;
   private pointerSelection: PointerSelectionState | null = null;
   private boxSelection: BoxSelectionState | null = null;
   private triangleRecords: TriangleRecord[] = [];
@@ -117,7 +118,7 @@ export class StlViewport {
     this.scene.add(ambientLight, keyLight, fillLight);
   }
 
-  mount(container: HTMLElement): void {
+  mount(container: HTMLElement, orientationRoot?: HTMLElement): void {
     this.container = container;
 
     const renderer = new WebGLRenderer({ antialias: true });
@@ -131,6 +132,14 @@ export class StlViewport {
     selectionBox.className = 'selection-box is-hidden';
     container.append(selectionBox);
     this.selectionBox = selectionBox;
+
+    if (orientationRoot) {
+      this.orientationGizmo = new OrientationGizmoOverlay((key) => {
+        this.orientTo(key);
+      });
+      this.orientationGizmo.mount(orientationRoot);
+      this.orientationGizmo.setVisible(false);
+    }
 
     const controls = new OrbitControls(this.camera, renderer.domElement);
     controls.enableDamping = true;
@@ -151,6 +160,9 @@ export class StlViewport {
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => this.resize());
       this.resizeObserver.observe(container);
+      if (orientationRoot) {
+        this.resizeObserver.observe(orientationRoot);
+      }
     } else {
       window.addEventListener('resize', this.resize);
     }
@@ -207,6 +219,7 @@ export class StlViewport {
     this.camera.updateProjectionMatrix();
 
     this.orientToDirection(DEFAULT_CAMERA_DIRECTION, false);
+    this.syncOrientationGizmo();
   }
 
   resetView(): void {
@@ -277,7 +290,7 @@ export class StlViewport {
       this.controls.target.copy(toTarget);
       this.camera.position.copy(toPosition);
       this.controls.update();
-      this.emitOrientation();
+      this.syncOrientationGizmo();
       this.renderOnce();
       return;
     }
@@ -307,23 +320,15 @@ export class StlViewport {
 
       if (progress >= 1) {
         this.tween = null;
-        this.emitOrientation();
+        this.syncOrientationGizmo();
       }
     }
 
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
+    this.syncOrientationGizmo();
     window.requestAnimationFrame(this.renderLoop);
   };
-
-  private emitOrientation(): void {
-    if (!this.controls || !this.currentFit) {
-      return;
-    }
-
-    const direction = this.camera.position.clone().sub(this.controls.target);
-    this.options.onOrientationChange?.(getClosestOrientationKey(direction));
-  }
 
   private emitSelectionChange(): void {
     this.options.onSelectionChange?.({
@@ -334,7 +339,7 @@ export class StlViewport {
   }
 
   private handleControlsChange = (): void => {
-    this.emitOrientation();
+    this.syncOrientationGizmo();
   };
 
   private handlePointerDown = (event: PointerEvent): void => {
@@ -643,6 +648,7 @@ export class StlViewport {
     }
 
     this.renderer.render(this.scene, this.camera);
+    this.syncOrientationGizmo();
   }
 
   private resize = (): void => {
@@ -656,7 +662,19 @@ export class StlViewport {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
+    this.orientationGizmo?.resize();
   };
+
+  private syncOrientationGizmo(): void {
+    if (!this.controls || !this.mesh) {
+      this.orientationGizmo?.setVisible(false);
+      return;
+    }
+
+    const viewDirection = this.camera.position.clone().sub(this.controls.target);
+    this.orientationGizmo?.setVisible(true);
+    this.orientationGizmo?.syncFromCamera(viewDirection);
+  }
 
   private getViewportPoint(event: PointerEvent): Vector2 | null {
     if (!this.renderer) {
@@ -678,6 +696,7 @@ export class StlViewport {
     this.disposeHighlightMesh();
 
     if (!this.mesh) {
+      this.orientationGizmo?.setVisible(false);
       return;
     }
 
@@ -689,6 +708,7 @@ export class StlViewport {
       disposeMaterial(this.mesh.material);
     }
     this.mesh = null;
+    this.orientationGizmo?.setVisible(false);
   }
 
   private disposeHighlightMesh(): void {
