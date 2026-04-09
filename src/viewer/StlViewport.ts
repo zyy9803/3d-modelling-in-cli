@@ -26,11 +26,11 @@ import { buildTriangleAdjacency, splitSelectionComponents } from './mesh-topolog
 import { getClosestOrientationKey, getOrientationDirection, type OrientationKey } from './orientation-gizmo';
 import { OrientationGizmoOverlay } from './orientation-gizmo-overlay';
 import {
+  createChatSelectionContext,
   createSelectionContext,
 } from './selection-context';
 import type {
   SelectionComponentPayload,
-  SelectionContextPayload,
   SelectionMode,
   ViewContextPayload,
 } from '../shared/codex-session-types';
@@ -238,7 +238,7 @@ export class StlViewport {
     this.setSelection(clearSelectionSet(), 'click');
   }
 
-  exportContext(): { selectionContext: SelectionContextPayload; viewContext: ViewContextPayload } | null {
+  exportContext(): ReturnType<typeof createSelectionContext> | null {
     if (!this.loadedFileName || !this.container || !this.controls) {
       return null;
     }
@@ -247,9 +247,20 @@ export class StlViewport {
     const viewToTarget = this.controls.target.clone().sub(this.camera.position);
     const orientationDirection = this.camera.position.clone().sub(this.controls.target);
 
-    const selectionContext = createSelectionContext({
+    const payload = createSelectionContext({
       fileName: this.loadedFileName,
-      modelId: this.loadedFileName,
+      view: {
+        cameraPosition: toVectorTuple(this.camera.position),
+        target: toVectorTuple(this.controls.target),
+        up: toVectorTuple(this.camera.up),
+        fov: roundNumber(this.camera.fov),
+        viewDirection: toVectorTuple(viewToTarget.normalize()),
+        dominantOrientation: getClosestOrientationKey(orientationDirection),
+        viewportSize: [
+          Math.round(this.container.clientWidth || 0),
+          Math.round(this.container.clientHeight || 0),
+        ],
+      },
       selection: {
         mode: this.selectionMode,
         triangleIds,
@@ -257,24 +268,6 @@ export class StlViewport {
       },
       components: this.selectionComponents,
     });
-
-    const viewContext: ViewContextPayload = {
-      cameraPosition: toVectorTuple(this.camera.position),
-      target: toVectorTuple(this.controls.target),
-      up: toVectorTuple(this.camera.up),
-      fov: roundNumber(this.camera.fov),
-      viewDirection: toVectorTuple(viewToTarget.normalize()),
-      dominantOrientation: getClosestOrientationKey(orientationDirection),
-      viewportSize: [
-        Math.round(this.container.clientWidth || 0),
-        Math.round(this.container.clientHeight || 0),
-      ],
-    };
-
-    const payload = {
-      selectionContext,
-      viewContext,
-    };
 
     const content = JSON.stringify(payload, null, 2);
     const blob = new Blob([content], { type: 'application/json' });
@@ -286,6 +279,39 @@ export class StlViewport {
     URL.revokeObjectURL(url);
 
     return payload;
+  }
+
+  buildChatPayload(): { selectionContext: ReturnType<typeof createChatSelectionContext>; viewContext: ViewContextPayload } | null {
+    if (!this.loadedFileName || !this.container || !this.controls) {
+      return null;
+    }
+
+    const triangleIds = [...this.selectedTriangles].sort((left, right) => left - right);
+    const viewToTarget = this.controls.target.clone().sub(this.camera.position);
+    const orientationDirection = this.camera.position.clone().sub(this.controls.target);
+
+    return {
+      selectionContext: createChatSelectionContext({
+        selection: {
+          mode: this.selectionMode,
+          triangleIds,
+          ...(this.selectionScreenRect ? { screenRect: this.selectionScreenRect } : {}),
+        },
+        components: this.selectionComponents,
+      }),
+      viewContext: {
+        cameraPosition: toVectorTuple(this.camera.position),
+        target: toVectorTuple(this.controls.target),
+        up: toVectorTuple(this.camera.up),
+        fov: roundNumber(this.camera.fov),
+        viewDirection: toVectorTuple(viewToTarget.normalize()),
+        dominantOrientation: getClosestOrientationKey(orientationDirection),
+        viewportSize: [
+          Math.round(this.container.clientWidth || 0),
+          Math.round(this.container.clientHeight || 0),
+        ],
+      },
+    };
   }
 
   private orientToDirection(direction: Vector3, animated: boolean): void {

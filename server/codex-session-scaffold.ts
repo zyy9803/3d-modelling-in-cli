@@ -13,15 +13,8 @@ export function createPlaceholderSessionRequest(): SessionMessageRequest {
       text: 'Server scaffold ready.',
     },
     selectionContext: {
-      version: 1,
-      model: {
-        id: 'bootstrap-model',
-        fileName: 'bootstrap.stl',
-      },
-      selection: {
-        mode: 'click',
-        triangleIds: [],
-      },
+      mode: 'click',
+      triangleIds: [],
       components: [],
     },
     viewContext: {
@@ -43,7 +36,6 @@ export function buildPlaceholderPrompt(request: SessionMessageRequest): string {
 export function createBootstrapEvent(): SessionStreamEvent {
   return {
     type: 'status_changed',
-    sessionId: 'bootstrap-session',
     status: 'idle',
   };
 }

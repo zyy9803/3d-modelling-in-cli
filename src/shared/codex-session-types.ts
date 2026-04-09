@@ -1,7 +1,5 @@
-export type Vector3Tuple = readonly [number, number, number];
-export type ViewportSizeTuple = readonly [number, number];
-
-export type SelectionMode = 'click' | 'box';
+export type Vector3Tuple = [number, number, number];
+export type ViewportSizeTuple = [number, number];
 
 export type CodexConnectionStatus = 'starting' | 'connected' | 'disconnected' | 'failed';
 
@@ -25,16 +23,9 @@ export type SelectionComponentPayload = {
 };
 
 export type SelectionContextPayload = {
-  version: 1;
-  model: {
-    id: string;
-    fileName: string;
-  };
-  selection: {
-    mode: SelectionMode;
-    triangleIds: number[];
-    screenRect?: readonly [number, number, number, number];
-  };
+  mode: 'click' | 'box';
+  triangleIds: number[];
+  screenRect?: [number, number, number, number];
   components: SelectionComponentPayload[];
 };
 
@@ -65,21 +56,20 @@ export type SessionModelSwitchRequest = {
   modelLabel: string | null;
 };
 
-export type DecisionQuestionOption = {
-  label: string;
-  description: string;
-};
-
 export type DecisionQuestion = {
   id: string;
   header: string;
   question: string;
   allowOther: boolean;
-  options: DecisionQuestionOption[];
+  options: Array<{
+    label: string;
+    description: string;
+  }>;
 };
 
 export type SessionDecisionCard = {
-  kind: string;
+  id: string;
+  kind: 'approval' | 'user_input';
   title: string;
   body: string;
   questions: DecisionQuestion[];
@@ -94,59 +84,53 @@ export type SessionDecisionRequest = {
 export type SessionStreamEvent =
   | {
       type: 'connection_status_changed';
-      status: CodexConnectionStatus;
-      detail?: string;
+      connectionStatus: CodexConnectionStatus;
+      message: string;
+    }
+  | {
+      type: 'session_started';
+      sessionId: string;
     }
   | {
       type: 'status_changed';
-      sessionId: string;
       status: ChatSessionStatus;
     }
   | {
       type: 'message_started';
-      sessionId: string;
       messageId: string;
-      role: 'assistant' | 'user' | 'system';
+      role: 'assistant';
     }
   | {
       type: 'message_delta';
-      sessionId: string;
       messageId: string;
       delta: string;
     }
   | {
       type: 'message_completed';
-      sessionId: string;
       messageId: string;
-      text: string;
     }
   | {
       type: 'needs_decision';
-      sessionId: string;
       decision: SessionDecisionCard;
     }
   | {
       type: 'session_paused';
-      sessionId: string;
-      reason?: string;
+      decisionId: string;
     }
   | {
       type: 'session_resumed';
-      sessionId: string;
+      decisionId: string;
     }
   | {
       type: 'model_switched';
-      sessionId: string;
       activeModelId: string | null;
       modelLabel: string | null;
     }
   | {
       type: 'session_cleared';
-      sessionId: string;
     }
   | {
       type: 'error';
+      scope: 'connection' | 'session';
       message: string;
-      sessionId?: string;
-      code?: string;
     };
