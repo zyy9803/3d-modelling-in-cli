@@ -1,5 +1,8 @@
 import { createFileDropzone, isStlFile } from '../ui/FileDropzone';
-import { type OrientationKey, renderOrientationGizmo } from '../viewer/orientation-gizmo';
+import {
+  renderOrientationGizmo,
+  type OrientationGizmoState,
+} from '../viewer/orientation-gizmo';
 import { StlViewport, type ViewportSelectionSummary } from '../viewer/StlViewport';
 
 const EMPTY_SELECTION_SUMMARY: ViewportSelectionSummary = {
@@ -8,10 +11,16 @@ const EMPTY_SELECTION_SUMMARY: ViewportSelectionSummary = {
   mode: 'click',
 };
 
+const HIDDEN_GIZMO_STATE: OrientationGizmoState = {
+  visible: false,
+  activeKey: null,
+  cubeTransform: '',
+};
+
 export class ViewerApp {
-  private activeOrientation: OrientationKey | null = null;
   private viewport: StlViewport | null = null;
   private selectionSummary = EMPTY_SELECTION_SUMMARY;
+  private orientationState = HIDDEN_GIZMO_STATE;
   private readonly viewportPanel: HTMLElement;
   private readonly viewportHost: HTMLElement;
   private readonly fileInput: HTMLInputElement;
@@ -37,7 +46,7 @@ export class ViewerApp {
 
     this.bindEvents();
     this.updateSelectionStatus(this.selectionSummary);
-    this.renderOrientationGizmo();
+    this.renderCurrentOrientationGizmo();
     this.mountViewport();
   }
 
@@ -120,9 +129,9 @@ export class ViewerApp {
     }
 
     this.viewport = new StlViewport({
-      onOrientationChange: (key) => {
-        this.activeOrientation = key;
-        this.renderOrientationGizmo();
+      onOrientationChange: (state) => {
+        this.orientationState = state;
+        this.renderCurrentOrientationGizmo();
       },
       onSelectionChange: (summary) => {
         this.updateSelectionStatus(summary);
@@ -161,8 +170,8 @@ export class ViewerApp {
     }
   }
 
-  private renderOrientationGizmo(): void {
-    renderOrientationGizmo(this.orientationRoot, this.activeOrientation, (key) => {
+  private renderCurrentOrientationGizmo(): void {
+    renderOrientationGizmo(this.orientationRoot, this.orientationState, (key) => {
       this.viewport?.orientTo(key);
     });
   }

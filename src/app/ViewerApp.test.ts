@@ -28,7 +28,8 @@ describe('ViewerApp', () => {
 
     new ViewerApp(root);
 
-    expect(root.querySelectorAll('[data-orientation]').length).toBe(6);
+    expect(root.querySelectorAll('[data-orientation-face]').length).toBe(0);
+    expect(root.querySelector('[data-orientation-root]')).not.toBeNull();
   });
 
   it('marks the shell as a viewport-filling layout', () => {
