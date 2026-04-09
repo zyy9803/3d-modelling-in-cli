@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently -k \"npm run dev:client\" \"npm run dev:server\"",
     "dev:client": "vite",
-    "dev:server": "tsx watch --tsconfig tsconfig.server.json src/server/index.ts",
+    "dev:server": "tsx watch --tsconfig tsconfig.server.json server/index.ts",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
