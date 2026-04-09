@@ -1,48 +1,57 @@
-import type {
-  SelectionContextPayload,
-  ViewContextPayload,
-} from './codex-session-types';
+import type { SessionMessageRequest, SelectionComponentPayload } from './codex-session-types';
 
-export type CodexTurnPromptInput = {
-  activeModelId: string;
-  selectionContext: SelectionContextPayload;
-  viewContext: ViewContextPayload;
-  userText: string;
-};
-
-export function buildCodexTurnPrompt(input: CodexTurnPromptInput): string {
-  return [
+export function buildCodexTurnPrompt(request: SessionMessageRequest): string {
+  const lines = [
     'Phase 3A conversation only.',
     'No STL or mesh edit has been executed.',
-    `Active model ID: ${input.activeModelId}`,
+    `Active model ID: ${formatMaybeString(request.activeModelId)}`,
     '',
-    'Selection context:',
-    stableStringify(input.selectionContext),
+    'User message:',
+    request.message.text,
     '',
-    'View context:',
-    stableStringify(input.viewContext),
+    'Selection summary:',
+    `- Model: ${request.selectionContext.model.fileName} (${request.selectionContext.model.id})`,
+    `- Selection mode: ${request.selectionContext.selection.mode}`,
+    `- Triangle IDs: ${formatNumberList(request.selectionContext.selection.triangleIds)}`,
+    `- Components: ${request.selectionContext.components.length}`,
+    ...request.selectionContext.components.flatMap((component, index) => formatComponentLines(component, index)),
     '',
-    'User text:',
-    input.userText,
-  ].join('\n');
+    'View summary:',
+    `- Camera position: ${formatTuple(request.viewContext.cameraPosition)}`,
+    `- Target: ${formatTuple(request.viewContext.target)}`,
+    `- Up: ${formatTuple(request.viewContext.up)}`,
+    `- FOV: ${formatNumber(request.viewContext.fov)}`,
+    `- View direction: ${formatTuple(request.viewContext.viewDirection)}`,
+    `- Dominant orientation: ${request.viewContext.dominantOrientation}`,
+    `- Viewport size: ${request.viewContext.viewportSize[0]} x ${request.viewContext.viewportSize[1]}`,
+  ];
+
+  return lines.join('\n');
 }
 
-function stableStringify(value: unknown): string {
-  return JSON.stringify(sortValue(value), null, 2);
+function formatComponentLines(component: SelectionComponentPayload, index: number): string[] {
+  return [
+    `  - Component ${index + 1}: ${component.id}`,
+    `    - Triangle IDs: ${formatNumberList(component.triangleIds)}`,
+    `    - Centroid: ${formatTuple(component.centroid)}`,
+    `    - Bounding box: ${formatTuple(component.bboxMin)} -> ${formatTuple(component.bboxMax)}`,
+    `    - Average normal: ${formatTuple(component.avgNormal)}`,
+    `    - Area: ${formatNumber(component.area)}`,
+  ];
 }
 
-function sortValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(sortValue);
-  }
+function formatTuple(value: readonly number[]): string {
+  return `[${value.map((entry) => formatNumber(entry)).join(', ')}]`;
+}
 
-  if (value && typeof value === 'object') {
-    const sortedEntries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) =>
-      left.localeCompare(right),
-    );
+function formatNumberList(values: readonly number[]): string {
+  return values.length === 0 ? 'none' : values.map((entry) => formatNumber(entry)).join(', ');
+}
 
-    return Object.fromEntries(sortedEntries.map(([key, entry]) => [key, sortValue(entry)]));
-  }
+function formatNumber(value: number): string {
+  return Number.isInteger(value) ? `${value}` : `${value}`;
+}
 
-  return value;
+function formatMaybeString(value: string | null): string {
+  return value ?? 'none';
 }

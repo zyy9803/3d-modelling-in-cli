@@ -3,14 +3,15 @@ export type ViewportSizeTuple = readonly [number, number];
 
 export type SelectionMode = 'click' | 'box';
 
-export type CodexConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type CodexConnectionStatus = 'starting' | 'connected' | 'disconnected' | 'failed';
 
 export type ChatSessionStatus =
   | 'idle'
-  | 'queued'
+  | 'sending'
   | 'streaming'
-  | 'awaiting-decision'
-  | 'complete'
+  | 'waiting_decision'
+  | 'resuming'
+  | 'completed'
   | 'failed';
 
 export type SelectionComponentPayload = {
@@ -49,63 +50,99 @@ export type ViewContextPayload = {
 
 export type SessionMessageRequest = {
   sessionId: string;
-  activeModelId: string;
-  text: string;
+  activeModelId: string | null;
+  message: {
+    role: 'user';
+    text: string;
+  };
   selectionContext: SelectionContextPayload;
   viewContext: ViewContextPayload;
 };
 
 export type SessionModelSwitchRequest = {
   sessionId: string;
-  activeModelId: string;
+  activeModelId: string | null;
+  modelLabel: string | null;
+};
+
+export type DecisionQuestionOption = {
+  label: string;
+  description: string;
 };
 
 export type DecisionQuestion = {
   id: string;
-  prompt: string;
-  choices: string[];
-  allowFreeform?: boolean;
+  header: string;
+  question: string;
+  allowOther: boolean;
+  options: DecisionQuestionOption[];
 };
 
 export type SessionDecisionCard = {
-  id: string;
+  kind: string;
   title: string;
-  prompt: string;
+  body: string;
   questions: DecisionQuestion[];
 };
 
 export type SessionDecisionRequest = {
   sessionId: string;
-  cardId: string;
+  decisionId: string;
   answers: Record<string, string>;
 };
 
 export type SessionStreamEvent =
   | {
-      type: 'connection-status';
+      type: 'connection_status_changed';
       status: CodexConnectionStatus;
       detail?: string;
     }
   | {
-      type: 'session-status';
+      type: 'status_changed';
       sessionId: string;
       status: ChatSessionStatus;
     }
   | {
-      type: 'message';
+      type: 'message_started';
       sessionId: string;
-      role: 'user' | 'assistant' | 'system';
+      messageId: string;
+      role: 'assistant' | 'user' | 'system';
+    }
+  | {
+      type: 'message_delta';
+      sessionId: string;
+      messageId: string;
+      delta: string;
+    }
+  | {
+      type: 'message_completed';
+      sessionId: string;
+      messageId: string;
       text: string;
     }
   | {
-      type: 'decision-card';
+      type: 'needs_decision';
       sessionId: string;
-      card: SessionDecisionCard;
+      decision: SessionDecisionCard;
     }
   | {
-      type: 'decision-request';
+      type: 'session_paused';
       sessionId: string;
-      request: SessionDecisionRequest;
+      reason?: string;
+    }
+  | {
+      type: 'session_resumed';
+      sessionId: string;
+    }
+  | {
+      type: 'model_switched';
+      sessionId: string;
+      activeModelId: string | null;
+      modelLabel: string | null;
+    }
+  | {
+      type: 'session_cleared';
+      sessionId: string;
     }
   | {
       type: 'error';

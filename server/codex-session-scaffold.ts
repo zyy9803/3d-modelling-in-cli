@@ -7,8 +7,11 @@ import type {
 export function createPlaceholderSessionRequest(): SessionMessageRequest {
   return {
     sessionId: 'bootstrap-session',
-    activeModelId: 'bootstrap-model',
-    text: 'Server scaffold ready.',
+    activeModelId: null,
+    message: {
+      role: 'user',
+      text: 'Server scaffold ready.',
+    },
     selectionContext: {
       version: 1,
       model: {
@@ -34,17 +37,12 @@ export function createPlaceholderSessionRequest(): SessionMessageRequest {
 }
 
 export function buildPlaceholderPrompt(request: SessionMessageRequest): string {
-  return buildCodexTurnPrompt({
-    activeModelId: request.activeModelId,
-    selectionContext: request.selectionContext,
-    viewContext: request.viewContext,
-    userText: request.text,
-  });
+  return buildCodexTurnPrompt(request);
 }
 
 export function createBootstrapEvent(): SessionStreamEvent {
   return {
-    type: 'session-status',
+    type: 'status_changed',
     sessionId: 'bootstrap-session',
     status: 'idle',
   };

@@ -3,9 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { buildCodexTurnPrompt } from './codex-turn-prompt';
 
 describe('buildCodexTurnPrompt', () => {
-  it('serializes the turn in a deterministic, phase-3A-only payload', () => {
+  it('formats a summary-style prompt for a codex turn', () => {
     const prompt = buildCodexTurnPrompt({
+      sessionId: 'session-1',
       activeModelId: 'model-42',
+      message: {
+        role: 'user',
+        text: 'Inspect the selected ribs.',
+      },
       selectionContext: {
         version: 1,
         model: {
@@ -37,100 +42,47 @@ describe('buildCodexTurnPrompt', () => {
         dominantOrientation: '+X',
         viewportSize: [1280, 720],
       },
-      userText: 'Inspect the selected ribs.',
     });
 
-    expect(prompt).toBe(
-      [
-        'Phase 3A conversation only.',
-        'No STL or mesh edit has been executed.',
-        'Active model ID: model-42',
-        '',
-        'Selection context:',
-        '{',
-        '  "components": [',
-        '    {',
-        '      "area": 2.5,',
-        '      "avgNormal": [',
-        '        0,',
-        '        0,',
-        '        1',
-        '      ],',
-        '      "bboxMax": [',
-        '        1,',
-        '        1,',
-        '        1',
-        '      ],',
-        '      "bboxMin": [',
-        '        -1,',
-        '        -1,',
-        '        -1',
-        '      ],',
-        '      "centroid": [',
-        '        0,',
-        '        1,',
-        '        2',
-        '      ],',
-        '      "id": "sel_0",',
-        '      "triangleIds": [',
-        '        7,',
-        '        9',
-        '      ]',
-        '    }',
-        '  ],',
-        '  "model": {',
-        '    "fileName": "part.stl",',
-        '    "id": "model-42"',
-        '  },',
-        '  "selection": {',
-        '    "mode": "click",',
-        '    "triangleIds": [',
-        '      7,',
-        '      9',
-        '    ]',
-        '  },',
-        '  "version": 1',
-        '}',
-        '',
-        'View context:',
-        '{',
-        '  "cameraPosition": [',
-        '    1,',
-        '    2,',
-        '    3',
-        '  ],',
-        '  "dominantOrientation": "+X",',
-        '  "fov": 50,',
-        '  "target": [',
-        '    0,',
-        '    0,',
-        '    0',
-        '  ],',
-        '  "up": [',
-        '    0,',
-        '    1,',
-        '    0',
-        '  ],',
-        '  "viewDirection": [',
-        '    0,',
-        '    0,',
-        '    -1',
-        '  ],',
-        '  "viewportSize": [',
-        '    1280,',
-        '    720',
-        '  ]',
-        '}',
-        '',
-        'User text:',
-        'Inspect the selected ribs.',
-      ].join('\n'),
-    );
+    expect(prompt).toBe([
+      'Phase 3A conversation only.',
+      'No STL or mesh edit has been executed.',
+      'Active model ID: model-42',
+      '',
+      'User message:',
+      'Inspect the selected ribs.',
+      '',
+      'Selection summary:',
+      '- Model: part.stl (model-42)',
+      '- Selection mode: click',
+      '- Triangle IDs: 7, 9',
+      '- Components: 1',
+      '  - Component 1: sel_0',
+      '    - Triangle IDs: 7, 9',
+      '    - Centroid: [0, 1, 2]',
+      '    - Bounding box: [-1, -1, -1] -> [1, 1, 1]',
+      '    - Average normal: [0, 0, 1]',
+      '    - Area: 2.5',
+      '',
+      'View summary:',
+      '- Camera position: [1, 2, 3]',
+      '- Target: [0, 0, 0]',
+      '- Up: [0, 1, 0]',
+      '- FOV: 50',
+      '- View direction: [0, 0, -1]',
+      '- Dominant orientation: +X',
+      '- Viewport size: 1280 x 720',
+    ].join('\n'));
   });
 
-  it('keeps prompt output stable when object keys arrive in a different order', () => {
+  it('stays deterministic when the request object keys are reordered', () => {
     const promptA = buildCodexTurnPrompt({
-      activeModelId: 'model-42',
+      sessionId: 'session-1',
+      activeModelId: null,
+      message: {
+        role: 'user',
+        text: 'Hello',
+      },
       selectionContext: {
         version: 1,
         model: {
@@ -138,8 +90,8 @@ describe('buildCodexTurnPrompt', () => {
           fileName: 'part.stl',
         },
         selection: {
-          mode: 'click',
-          triangleIds: [1, 2],
+          mode: 'box',
+          triangleIds: [],
         },
         components: [],
       },
@@ -152,22 +104,12 @@ describe('buildCodexTurnPrompt', () => {
         dominantOrientation: '+X',
         viewportSize: [1280, 720],
       },
-      userText: 'Hello',
     });
 
     const promptB = buildCodexTurnPrompt({
-      activeModelId: 'model-42',
-      selectionContext: {
-        components: [],
-        selection: {
-          triangleIds: [1, 2],
-          mode: 'click',
-        },
-        model: {
-          fileName: 'part.stl',
-          id: 'model-42',
-        },
-        version: 1,
+      message: {
+        text: 'Hello',
+        role: 'user',
       },
       viewContext: {
         viewportSize: [1280, 720],
@@ -178,7 +120,20 @@ describe('buildCodexTurnPrompt', () => {
         target: [0, 0, 0],
         cameraPosition: [1, 2, 3],
       },
-      userText: 'Hello',
+      selectionContext: {
+        components: [],
+        selection: {
+          triangleIds: [],
+          mode: 'box',
+        },
+        model: {
+          fileName: 'part.stl',
+          id: 'model-42',
+        },
+        version: 1,
+      },
+      activeModelId: null,
+      sessionId: 'session-1',
     });
 
     expect(promptB).toBe(promptA);

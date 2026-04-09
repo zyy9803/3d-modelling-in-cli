@@ -27,9 +27,13 @@ import { getClosestOrientationKey, getOrientationDirection, type OrientationKey 
 import { OrientationGizmoOverlay } from './orientation-gizmo-overlay';
 import {
   createSelectionContext,
-  type SelectionComponentExport,
-  type SelectionMode,
 } from './selection-context';
+import type {
+  SelectionComponentPayload,
+  SelectionContextPayload,
+  SelectionMode,
+  ViewContextPayload,
+} from '../shared/codex-session-types';
 import { getSelectionModifier, type SelectionModifier } from './selection-shortcuts';
 import { addTriangles, clearSelection as clearSelectionSet, removeTriangles, replaceSelection } from './selection-manager';
 
@@ -97,7 +101,7 @@ export class StlViewport {
   private triangleRecords: TriangleRecord[] = [];
   private triangleAdjacency = new Map<number, number[]>();
   private selectedTriangles = new Set<number>();
-  private selectionComponents: SelectionComponentExport[] = [];
+  private selectionComponents: SelectionComponentPayload[] = [];
   private selectionMode: SelectionMode = 'click';
   private selectionScreenRect: [number, number, number, number] | undefined;
   private positionArray: ArrayLike<number> | null = null;
@@ -234,7 +238,7 @@ export class StlViewport {
     this.setSelection(clearSelectionSet(), 'click');
   }
 
-  exportContext(): ReturnType<typeof createSelectionContext> | null {
+  exportContext(): { selectionContext: SelectionContextPayload; viewContext: ViewContextPayload } | null {
     if (!this.loadedFileName || !this.container || !this.controls) {
       return null;
     }
@@ -243,20 +247,9 @@ export class StlViewport {
     const viewToTarget = this.controls.target.clone().sub(this.camera.position);
     const orientationDirection = this.camera.position.clone().sub(this.controls.target);
 
-    const payload = createSelectionContext({
+    const selectionContext = createSelectionContext({
       fileName: this.loadedFileName,
-      view: {
-        cameraPosition: toVectorTuple(this.camera.position),
-        target: toVectorTuple(this.controls.target),
-        up: toVectorTuple(this.camera.up),
-        fov: roundNumber(this.camera.fov),
-        viewDirection: toVectorTuple(viewToTarget.normalize()),
-        dominantOrientation: getClosestOrientationKey(orientationDirection),
-        viewportSize: [
-          Math.round(this.container.clientWidth || 0),
-          Math.round(this.container.clientHeight || 0),
-        ],
-      },
+      modelId: this.loadedFileName,
       selection: {
         mode: this.selectionMode,
         triangleIds,
@@ -264,6 +257,24 @@ export class StlViewport {
       },
       components: this.selectionComponents,
     });
+
+    const viewContext: ViewContextPayload = {
+      cameraPosition: toVectorTuple(this.camera.position),
+      target: toVectorTuple(this.controls.target),
+      up: toVectorTuple(this.camera.up),
+      fov: roundNumber(this.camera.fov),
+      viewDirection: toVectorTuple(viewToTarget.normalize()),
+      dominantOrientation: getClosestOrientationKey(orientationDirection),
+      viewportSize: [
+        Math.round(this.container.clientWidth || 0),
+        Math.round(this.container.clientHeight || 0),
+      ],
+    };
+
+    const payload = {
+      selectionContext,
+      viewContext,
+    };
 
     const content = JSON.stringify(payload, null, 2);
     const blob = new Blob([content], { type: 'application/json' });
@@ -768,7 +779,7 @@ function buildSelectionComponents(
   selectedTriangles: Set<number>,
   triangleRecords: TriangleRecord[],
   adjacency: Map<number, number[]>,
-): SelectionComponentExport[] {
+): SelectionComponentPayload[] {
   return splitSelectionComponents(selectedTriangles, adjacency).map((triangleIds, index) => {
     const centroid = new Vector3();
     const avgNormal = new Vector3();
