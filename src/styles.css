@@ -1,0 +1,118 @@
+:root {
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #f6f1e8;
+  background:
+    radial-gradient(circle at top, rgba(94, 121, 144, 0.28), transparent 35%),
+    linear-gradient(180deg, #1b1d22 0%, #111317 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+  padding: 20px;
+  gap: 16px;
+}
+
+.topbar,
+.toolbar,
+.viewport-panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(19, 23, 29, 0.8);
+  backdrop-filter: blur(14px);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 18px;
+}
+
+.topbar h1,
+.topbar p {
+  margin: 0;
+}
+
+.topbar p {
+  margin-top: 6px;
+  color: #b7c3cf;
+}
+
+.viewer-layout {
+  min-height: 0;
+}
+
+.viewport-panel {
+  position: relative;
+  min-height: 60vh;
+  border-radius: 26px;
+  overflow: hidden;
+}
+
+.viewport-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #cad6e1;
+  letter-spacing: 0.04em;
+}
+
+.file-dropzone {
+  position: absolute;
+  inset: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(160, 183, 203, 0.35);
+  border-radius: 20px;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 999px;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.toolbar button,
+.topbar button {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 18px;
+  cursor: pointer;
+}
+
+.toolbar button[aria-pressed="true"] {
+  background: #f5c66a;
+  color: #1b1d22;
+}
+
+.toolbar button[aria-pressed="false"],
+.topbar button {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f6f1e8;
+}
