@@ -1,112 +1,117 @@
-# STL Web Viewer Design
+# STL Web 预览器设计文档
 
-## Overview
+## 概述
 
-This document defines the first implementation of a lightweight STL file viewer for the web, built with TypeScript and Three.js.
+本文档定义一个运行在 Web 端的轻量级 STL 文件预览器首版设计，技术栈为 TypeScript 与 Three.js。
 
-The viewer is intended to provide a focused local preview workflow rather than a full CAD tool. Users load a local `.stl` file by drag-and-drop or file selection, inspect it in a Three.js viewport, and quickly switch among standard orientations.
+该预览器的目标是提供聚焦的本地预览体验，而不是完整的 CAD 工具。用户通过拖拽或文件选择加载本地 `.stl` 文件，在 Three.js 画布中查看模型，并快速切换到标准朝向视角。
 
-## Goals
+## 目标
 
-- Build a web-based STL viewer that runs locally in the browser.
-- Use `TypeScript + Three.js` with a lightweight project structure.
-- Support local STL loading through file selection and drag-and-drop.
-- Support mouse wheel zoom.
-- Support left mouse drag interaction, with a UI toggle between:
-  - orbiting around the model
-  - panning the whole view
-- Automatically center the model and fit the initial camera framing after load.
-- Provide a bottom control bar with:
-  - `Rotate`
-  - `Pan`
-  - `Reset View`
-- Provide a bottom-right orientation widget with clickable standard directions based on XYZ axes.
+- 构建一个运行在浏览器中的 STL Web 预览器
+- 使用 `TypeScript + Three.js`，保持工程结构轻量
+- 支持通过文件选择和拖拽方式加载本地 STL 文件
+- 支持鼠标滚轮缩放
+- 支持鼠标左键拖拽交互，并通过底部按钮切换两种模式：
+  - 围绕模型旋转观察
+  - 平移整个视图
+- 文件加载后自动将模型居中并完成初始视角自适应
+- 页面底部提供控制栏：
+  - `旋转`
+  - `平移`
+  - `重置视角`
+- 右下角提供基于 XYZ 轴的可点击朝向控件
 
-## Non-Goals
+## 非目标
 
-- Editing STL geometry
-- Material presets, lighting presets, or theme switching
-- Measurement tools
-- Section views
-- Orthographic camera mode
-- Persistent file history
-- Server-side upload or storage
-- Full end-to-end browser automation coverage in the first iteration
+- STL 几何编辑
+- 材质预设、灯光预设或主题切换
+- 测量工具
+- 剖切视图
+- 正交相机模式
+- 文件历史记录持久化
+- 服务端上传或存储
+- 首版完整的端到端浏览器自动化测试
 
-## Chosen Approach
+## 选型结论
 
-The project will use:
+项目采用以下技术方案：
 
-- `Vite` for local development and bundling
-- `TypeScript` for application code
-- `Three.js` for rendering
-- `STLLoader` from Three.js examples for parsing STL files
-- `OrbitControls` from Three.js examples for camera interaction
+- `Vite`：本地开发与打包
+- `TypeScript`：应用代码编写
+- `Three.js`：3D 渲染
+- `STLLoader`：解析 STL 文件
+- `OrbitControls`：相机交互控制
 
-This approach is preferred because it keeps the repo lightweight, avoids unnecessary framework overhead, and still gives stable primitives for STL loading, camera control, and future extension.
+选择这套方案的原因是：
 
-## User Experience
+- 对空仓起步足够轻
+- 不引入额外前端框架负担
+- 可以直接复用成熟的 STL 加载与相机控制能力
+- 后续如果需要继续扩展功能，仍有清晰的演进空间
 
-The viewer is a single-page application with four visible zones:
+## 用户体验
 
-1. Header / import area
-2. Main 3D viewport
-3. Bottom interaction controls
-4. Bottom-right orientation widget
+预览器采用单页结构，界面分为四个可见区域：
 
-### Primary flow
+1. 顶部导入区
+2. 中央 3D 视口
+3. 底部交互控制栏
+4. 右下角朝向控件
 
-1. User opens the app.
-2. Empty state prompts the user to drag a local `.stl` file into the page or choose a file from disk.
-3. The selected file is parsed and rendered.
-4. The viewer automatically frames the model.
-5. The user inspects the model with wheel zoom and left-drag interaction.
-6. The user can switch between rotate mode and pan mode from the bottom controls.
-7. The user can click the orientation widget to jump to standard axis-aligned views.
+### 主流程
 
-## Layout
+1. 用户打开页面
+2. 页面空状态提示拖拽本地 `.stl` 文件或点击选择文件
+3. 文件被解析并渲染
+4. 视图自动完成模型居中与首屏 framing
+5. 用户通过滚轮和鼠标左键拖拽查看模型
+6. 用户可通过底部控制栏切换旋转模式与平移模式
+7. 用户可通过右下角朝向控件切换到标准轴向视角
 
-### Header / import area
+## 页面布局
 
-The top area contains:
+### 顶部导入区
 
-- application title
-- drag-and-drop hint
-- file picker button
-- loaded file metadata summary when a file is active
+顶部区域包含：
 
-The metadata summary only needs to show:
+- 应用标题
+- 拖拽提示文案
+- 文件选择按钮
+- 文件加载成功后的元信息摘要
 
-- file name
-- file size
+元信息摘要首版只显示：
 
-### Main viewport
+- 文件名
+- 文件大小
 
-The viewport occupies the majority of the page.
+### 中央视口
 
-It includes:
+视口区域占据页面主体。
 
-- WebGL canvas
-- empty state message before a file is loaded
-- loading or error message overlay if parsing fails
+它包含：
 
-The model should visually remain the focus. Supporting UI should stay compact and not cover the central viewing area.
+- WebGL 画布
+- 未加载文件时的空状态提示
+- 加载失败时的错误提示层
 
-### Bottom controls
+首版应始终让模型本身成为视觉焦点，辅助 UI 保持紧凑，不遮挡中央观察区域。
 
-The bottom control bar contains exactly three actions:
+### 底部控制栏
 
-- `Rotate`
-- `Pan`
-- `Reset View`
+底部控制栏固定包含三个操作：
 
-`Rotate` is selected by default.
+- `旋转`
+- `平移`
+- `重置视角`
 
-### Orientation widget
+默认选中 `旋转`。
 
-The bottom-right widget uses a lightweight view-cube inspired control with visible axis labels.
+### 右下角朝向控件
 
-The clickable directions are:
+右下角控件采用轻量级 view-cube 风格，并显式展示 XYZ 轴方向。
+
+可点击的标准方向为：
 
 - `+X`
 - `-X`
@@ -115,207 +120,212 @@ The clickable directions are:
 - `+Z`
 - `-Z`
 
-The widget should look spatial rather than text-only. The implementation does not need a full 3D mini-scene; a compact HTML/CSS overlay with clear axis affordances is sufficient for the first version if it remains intuitive and clickable.
+首版不要求做成完整的 3D 小场景，但必须具备明显的空间感，不能只是 6 个平铺的文字按钮。使用 DOM + CSS 的 overlay 方案即可，只要用户能够直观理解并准确点击。
 
-## Rendering Architecture
+## 渲染架构
 
-The application is split into a small set of focused modules.
+应用拆分为少量职责清晰的模块。
 
 ### `ViewerApp`
 
-Responsibilities:
+职责：
 
-- holds app-level state
-- coordinates file loading
-- coordinates interaction mode
-- passes orientation commands into the viewport
-- renders surrounding UI
+- 持有应用级状态
+- 协调文件加载
+- 协调交互模式切换
+- 向视口传递朝向切换命令
+- 渲染外围 UI
 
-App-level state includes:
+应用级状态包括：
 
-- current file metadata
-- current interaction mode: `rotate | pan`
-- current load status: `idle | loading | ready | error`
-- current orientation highlight
+- 当前文件元信息
+- 当前交互模式：`rotate | pan`
+- 当前加载状态：`idle | loading | ready | error`
+- 当前朝向高亮状态
 
 ### `FileDropzone`
 
-Responsibilities:
+职责：
 
-- receives drag-and-drop input
-- triggers the file picker
-- validates the selected file type at a basic level
-- returns the chosen `File` object to `ViewerApp`
+- 接收拖拽文件输入
+- 触发文件选择
+- 对文件类型做基础校验
+- 将选中的 `File` 对象返回给 `ViewerApp`
 
 ### `StlViewport`
 
-Responsibilities:
+职责：
 
-- creates the Three.js renderer, scene, camera, and lights
-- owns `OrbitControls`
-- loads STL geometry
-- updates the scene when a new file is selected
-- computes bounding box, model center, and framing distance
-- handles resize updates
-- animates camera movement for orientation jumps and reset view
+- 创建 Three.js 的 renderer、scene、camera 和 lights
+- 持有 `OrbitControls`
+- 加载 STL 几何体
+- 在文件切换时更新场景内容
+- 计算包围盒、模型中心和 framing 距离
+- 处理 resize
+- 为朝向切换和重置视角提供相机动画
 
 ### `OrientationGizmo`
 
-Responsibilities:
+职责：
 
-- renders the bottom-right orientation control
-- exposes click events for standard directions
-- displays the currently active direction based on the current camera orientation
+- 渲染右下角朝向控件
+- 暴露标准方向点击事件
+- 根据当前相机方向显示对应高亮
 
-## Scene Setup
+## 场景设置
 
-The Three.js scene uses:
+Three.js 场景使用：
 
 - `PerspectiveCamera`
 - `WebGLRenderer`
-- ambient light
-- directional light
-- a neutral background suitable for geometry inspection
+- 环境光
+- 方向光
+- 适合几何观察的中性背景
 
-The viewer should render the STL with a simple shaded material, such as `MeshStandardMaterial` or `MeshPhongMaterial`, using a neutral surface color that keeps shape details readable.
+STL 模型渲染使用简单的实体材质，例如：
 
-The first version does not include wireframe mode.
+- `MeshStandardMaterial`
+- 或 `MeshPhongMaterial`
 
-## Camera and Control Behavior
+材质颜色应保持中性，以保证模型形体和光照细节可读。
 
-### Orbit control baseline
+首版不包含线框模式。
 
-`OrbitControls` is used as the camera interaction controller.
+## 相机与交互行为
 
-Default behavior:
+### OrbitControls 基线行为
 
-- wheel: zoom
-- left mouse drag: orbit the model
-- middle mouse drag: pan
-- right mouse drag: disabled
+使用 `OrbitControls` 作为相机交互控制器。
 
-### Rotate / Pan mode switch
+默认规则：
 
-The bottom control bar changes the behavior of the left mouse button:
+- 滚轮：缩放
+- 左键拖拽：围绕模型旋转
+- 中键拖拽：平移
+- 右键拖拽：禁用
 
-- in `Rotate` mode, left drag maps to `ROTATE`
-- in `Pan` mode, left drag maps to `PAN`
+### 旋转 / 平移模式切换
 
-Wheel zoom remains enabled in both modes.
+底部控制栏用于切换鼠标左键行为：
 
-Switching mode does not reset the current camera pose.
+- `旋转` 模式下，左键拖拽映射为 `ROTATE`
+- `平移` 模式下，左键拖拽映射为 `PAN`
 
-### Reset View
+无论在哪种模式下，滚轮缩放都保持可用。
 
-`Reset View` returns the camera to the viewer's default framed isometric orientation, not to a pure front, side, or top axis.
+模式切换不会重置当前相机姿态。
 
-The reset pose is defined as:
+### 重置视角
 
-- target = current model center
-- camera direction = normalized diagonal vector
-- distance = framing distance derived from current bounds
+`重置视角` 不返回到纯正视、侧视或顶视，而是返回到默认的等轴斜视观察位。
 
-For the first version, the default reset direction is the normalized vector `(1, 1, 1)`.
+重置后的相机姿态定义为：
 
-## STL Loading and Framing
+- `target = 当前模型中心`
+- 相机方向 = 归一化后的对角向量
+- 相机距离 = 根据当前模型包围范围计算出的 framing 距离
 
-When a file is selected:
+首版默认使用 `(1, 1, 1)` 归一化后的方向向量作为重置朝向。
 
-1. Parse the file using `STLLoader`.
-2. Build a mesh with the chosen preview material.
-3. Compute the geometry bounding box.
-4. Derive:
-   - center
-   - size
-   - bounding sphere or max extent
-5. Update the controls target to the model center.
-6. Move the camera to a fitted isometric position.
-7. Update near/far planes as needed so the model remains reliably visible.
+## STL 加载与自适应视角
 
-The implementation should preserve the generic STL data and avoid destructive modification of source file contents. If geometry centering is needed internally, it should only affect the in-memory preview object.
+用户选择文件后，处理流程如下：
 
-### Framing rule
+1. 使用 `STLLoader` 解析文件
+2. 基于解析结果创建 mesh
+3. 计算几何体包围盒
+4. 推导：
+   - 中心点
+   - 尺寸
+   - 包围球或最大尺度
+5. 更新 `OrbitControls.target` 到模型中心
+6. 将相机移动到合适的等轴观察位
+7. 按需更新 near / far planes，确保模型稳定可见
 
-The camera fitting logic should ensure:
+实现上应避免修改源文件数据。即使为了预览方便需要在内存中调整模型位置，也只应作用于当前预览对象，不应影响原始 STL 文件。
 
-- the whole model is visible after load
-- extra margin remains around the object
-- extremely small or large models still remain visible
+### Framing 规则
 
-The fitting helper should be implemented as a testable pure utility where practical.
+相机 fitting 逻辑必须保证：
 
-## Orientation Widget Behavior
+- 模型加载后能完整进入视野
+- 画面四周保留适当留白
+- 对极小或极大的 STL 模型都保持稳定可见
 
-The widget maps each clickable direction to a camera position on the corresponding axis relative to the current model center.
+相关的相机距离计算应尽量实现为可测试的纯函数工具。
 
-Examples:
+## 朝向控件行为
 
-- `+X`: camera positioned on positive X axis, looking at center
-- `-X`: camera positioned on negative X axis, looking at center
-- `+Y`: camera positioned above the model
-- `-Y`: camera positioned below the model
-- `+Z`: camera positioned on positive Z axis
-- `-Z`: camera positioned on negative Z axis
+朝向控件将每个标准方向映射为相对于模型中心的相机位置。
 
-Behavior rules:
+示例：
 
-- clicking a direction animates the camera to that orientation
-- the controls target remains fixed on the model center
-- the current interaction mode remains unchanged
-- after the animation completes, `OrbitControls` remains active from the new pose
-- the widget highlight updates when the user manually rotates close to a standard orientation
+- `+X`：相机位于模型中心的 X 正方向，朝向中心
+- `-X`：相机位于模型中心的 X 负方向，朝向中心
+- `+Y`：相机位于模型上方
+- `-Y`：相机位于模型下方
+- `+Z`：相机位于模型中心的 Z 正方向
+- `-Z`：相机位于模型中心的 Z 负方向
 
-Because STL files generally do not encode semantic front/back meaning, the UI will present axis labels only, not words like "front" or "left side" that imply model semantics.
+行为规则如下：
 
-## Error Handling
+- 点击某个方向后，相机会以短动画切换到对应朝向
+- `controls.target` 保持为模型中心，不随朝向切换漂移
+- 当前交互模式不变
+- 动画结束后，`OrbitControls` 继续从新姿态接管用户操作
+- 当用户手动旋转接近某个标准方向时，控件高亮同步更新
 
-The first version handles these cases explicitly:
+由于 STL 文件通常不包含“正面 / 背面”这种语义信息，UI 层只展示轴向标记，不展示会引入语义假设的“前后左右”命名。
 
-- non-STL file selected
-- empty or unreadable file
-- STL parsing failure
-- viewport resize
+## 错误处理
 
-Expected behavior:
+首版明确处理以下场景：
 
-- invalid file type: show a compact inline error message
-- parse failure: show a readable failure message and keep the app usable for retry
-- no loaded file: show empty state overlay instead of a blank unexplained canvas
-- resize: update renderer size and camera aspect ratio immediately
+- 选中的不是 STL 文件
+- 文件为空或不可读取
+- STL 解析失败
+- 视口尺寸变化
 
-## Testing Strategy
+预期行为：
 
-The first version uses a mixed strategy of targeted automated tests plus manual verification.
+- 文件类型无效：显示紧凑的行内错误提示
+- 解析失败：显示可理解的失败信息，并允许用户重新选择文件
+- 未加载文件：显示空状态提示，而不是给出无法解释的空白画布
+- resize：立即更新 renderer 尺寸与 camera aspect ratio
 
-### Automated tests
+## 测试策略
 
-Use `Vitest` for pure logic and mapping helpers.
+首版采用“少量自动化测试 + 明确手工验证”的策略。
 
-Test targets:
+### 自动化测试
 
-- camera framing helper
-- orientation key to camera direction mapping
-- rotate/pan mode to `OrbitControls` mouse-button mapping
+使用 `Vitest` 覆盖纯逻辑和映射规则。
 
-The intent is to lock down the math and interaction rules that are easy to regress.
+优先测试：
 
-### Manual verification
+- 相机 framing 距离计算工具
+- 朝向 key 到相机方向向量的映射
+- `旋转 / 平移` 模式到 `OrbitControls` 鼠标配置的映射
 
-Manual checks must cover:
+目标是优先锁定最容易回归的数学和交互规则。
 
-- choosing a local STL file
-- dragging and dropping a local STL file
-- wheel zoom
-- left-drag orbit in rotate mode
-- left-drag pan in pan mode
-- reset view returns to the framed isometric pose
-- model auto-centers and fits after load
-- clicking each orientation direction jumps to the expected axis view
-- viewport remains correct after window resize
+### 手工验证
 
-## Initial File Structure
+手工验证至少覆盖：
 
-The first implementation should use a small file layout:
+- 选择本地 STL 文件
+- 拖拽本地 STL 文件
+- 滚轮缩放
+- 旋转模式下左键绕模型旋转
+- 平移模式下左键平移视图
+- 点击重置视角后回到默认 framing 等轴视角
+- 加载模型后自动居中并适配视角
+- 点击每个朝向按钮都能切换到预期轴向
+- 浏览器窗口 resize 后视口保持正确
+
+## 初始文件结构
+
+首版建议采用以下精简目录结构：
 
 ```text
 src/
@@ -331,15 +341,15 @@ src/
     camera-fit.ts
 ```
 
-This layout keeps application orchestration, UI, viewer internals, and math helpers separated without introducing unnecessary layers.
+该结构把应用编排、UI、视口实现和数学工具拆开，但不引入不必要的复杂层次。
 
-## Implementation Notes
+## 实现说明
 
-- The first version should prefer a plain TypeScript architecture over React or any higher-level rendering framework.
-- The orientation widget can be implemented as DOM overlay UI mounted above the canvas.
-- Camera movement for reset and orientation jumps should be animated with a short interpolation rather than an abrupt snap.
-- The preview should use neutral defaults and avoid decorative UI that competes with the model.
+- 首版优先采用原生 TypeScript 架构，不引入 React 等更高层前端框架
+- 朝向控件可实现为覆盖在 canvas 上方的 DOM overlay
+- 朝向切换和重置视角使用短时插值动画，而不是瞬间跳变
+- 整体视觉应保持中性、克制，不让装饰性 UI 抢走模型本身的注意力
 
-## Repo Hygiene
+## 仓库卫生
 
-The visual brainstorming companion stores generated mockup files under `.superpowers/brainstorm/`. That path should be added to `.gitignore` before regular development continues, but it is not part of this spec commit.
+可视化辅助生成的草图文件会落在 `.superpowers/brainstorm/` 下。进入正式开发前，应将 `.superpowers/` 加入 `.gitignore`，但这一项不属于本设计文档提交内容的一部分。
