@@ -23,13 +23,7 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { fitCameraToBounds, DEFAULT_CAMERA_DIRECTION, type CameraFitResult } from './camera-fit';
 import { getDefaultMouseBindings } from './control-mode';
 import { buildTriangleAdjacency, splitSelectionComponents } from './mesh-topology';
-import {
-  buildOrientationTransform,
-  getClosestOrientationKey,
-  getOrientationDirection,
-  type OrientationGizmoState,
-  type OrientationKey,
-} from './orientation-gizmo';
+import { getClosestOrientationKey, getOrientationDirection, type OrientationKey } from './orientation-gizmo';
 import {
   createSelectionContext,
   type SelectionComponentExport,
@@ -50,7 +44,7 @@ export type ViewportSelectionSummary = {
 };
 
 type ViewportOptions = {
-  onOrientationChange?: (state: OrientationGizmoState) => void;
+  onOrientationChange?: (key: OrientationKey) => void;
   onSelectionChange?: (summary: ViewportSelectionSummary) => void;
 };
 
@@ -323,7 +317,12 @@ export class StlViewport {
   };
 
   private emitOrientation(): void {
-    this.options.onOrientationChange?.(this.getOrientationState());
+    if (!this.controls || !this.currentFit) {
+      return;
+    }
+
+    const direction = this.camera.position.clone().sub(this.controls.target);
+    this.options.onOrientationChange?.(getClosestOrientationKey(direction));
   }
 
   private emitSelectionChange(): void {
@@ -337,24 +336,6 @@ export class StlViewport {
   private handleControlsChange = (): void => {
     this.emitOrientation();
   };
-
-  private getOrientationState(): OrientationGizmoState {
-    if (!this.controls || !this.currentFit || !this.mesh) {
-      return {
-        visible: false,
-        activeKey: null,
-        cubeTransform: '',
-      };
-    }
-
-    const direction = this.camera.position.clone().sub(this.controls.target);
-
-    return {
-      visible: true,
-      activeKey: getClosestOrientationKey(direction),
-      cubeTransform: buildOrientationTransform(this.camera.quaternion),
-    };
-  }
 
   private handlePointerDown = (event: PointerEvent): void => {
     if (!this.renderer || !this.mesh || event.button !== 0) {
