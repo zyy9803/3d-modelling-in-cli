@@ -17,5 +17,12 @@
     "noUnusedParameters": true
   },
   "include": ["src/shared/**/*.ts", "server/**/*.ts"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "server/**/*.test.ts",
+    "server/**/*.spec.ts",
+    "server/**/*.test.tsx",
+    "server/**/*.spec.tsx"
+  ]
 }

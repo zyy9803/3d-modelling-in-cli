@@ -1,6 +1,8 @@
 export type Vector3Tuple = [number, number, number];
 export type ViewportSizeTuple = [number, number];
 
+export type SelectionMode = 'click' | 'box';
+
 export type CodexConnectionStatus = 'starting' | 'connected' | 'disconnected' | 'failed';
 
 export type ChatSessionStatus =

@@ -1,8 +1,8 @@
-import { buildCodexTurnPrompt } from '../src/shared/codex-turn-prompt';
+import { buildCodexTurnPrompt } from '../src/shared/codex-turn-prompt.js';
 import type {
   SessionMessageRequest,
   SessionStreamEvent,
-} from '../src/shared/codex-session-types';
+} from '../src/shared/codex-session-types.js';
 
 export function createPlaceholderSessionRequest(): SessionMessageRequest {
   return {
