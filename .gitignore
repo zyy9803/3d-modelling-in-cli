@@ -2,3 +2,5 @@ node_modules/
 dist/
 .superpowers/
 coverage/
+*.tsbuildinfo
+.playwright-mcp/
