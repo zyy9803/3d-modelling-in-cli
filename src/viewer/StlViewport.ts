@@ -1,13 +1,19 @@
 import {
   AmbientLight,
   Box3,
+  BufferGeometry,
   Color,
   DirectionalLight,
+  DoubleSide,
+  Float32BufferAttribute,
   Material,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   PerspectiveCamera,
+  Raycaster,
   Scene,
+  Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three';
@@ -16,10 +22,30 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 
 import { fitCameraToBounds, DEFAULT_CAMERA_DIRECTION, type CameraFitResult } from './camera-fit';
 import { getDefaultMouseBindings } from './control-mode';
+import { buildTriangleAdjacency, splitSelectionComponents } from './mesh-topology';
 import { getClosestOrientationKey, getOrientationDirection, type OrientationKey } from './orientation-gizmo';
+import {
+  createSelectionContext,
+  type SelectionComponentExport,
+  type SelectionMode,
+} from './selection-context';
+import { getSelectionModifier, type SelectionModifier } from './selection-shortcuts';
+import { addTriangles, clearSelection as clearSelectionSet, removeTriangles, replaceSelection } from './selection-manager';
+
+const CLICK_MOVE_THRESHOLD = 6;
+const SELECTION_FILL_COLOR = 0xf5c66a;
+const POSITION_COMPONENTS = 9;
+const VECTOR_COMPONENTS = 3;
+
+export type ViewportSelectionSummary = {
+  triangleCount: number;
+  componentCount: number;
+  mode: SelectionMode;
+};
 
 type ViewportOptions = {
   onOrientationChange?: (key: OrientationKey) => void;
+  onSelectionChange?: (summary: ViewportSelectionSummary) => void;
 };
 
 type CameraTween = {
@@ -31,17 +57,51 @@ type CameraTween = {
   toTarget: Vector3;
 };
 
+type PointerSelectionState = {
+  start: Vector2;
+  moved: boolean;
+  modifier: SelectionModifier;
+  allowsBoxSelection: boolean;
+};
+
+type BoxSelectionState = PointerSelectionState & {
+  current: Vector2;
+};
+
+type TriangleRecord = {
+  id: number;
+  centroid: Vector3;
+  normal: Vector3;
+  area: number;
+  bboxMin: Vector3;
+  bboxMax: Vector3;
+};
+
 export class StlViewport {
   private readonly scene = new Scene();
   private readonly camera = new PerspectiveCamera(50, 1, 0.01, 2000);
   private readonly loader = new STLLoader();
+  private readonly raycaster = new Raycaster();
   private renderer: WebGLRenderer | null = null;
   private controls: OrbitControls | null = null;
   private container: HTMLElement | null = null;
   private mesh: Mesh | null = null;
+  private highlightMesh: Mesh | null = null;
   private currentFit: CameraFitResult | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private tween: CameraTween | null = null;
+  private selectionBox: HTMLElement | null = null;
+  private pointerSelection: PointerSelectionState | null = null;
+  private boxSelection: BoxSelectionState | null = null;
+  private triangleRecords: TriangleRecord[] = [];
+  private triangleAdjacency = new Map<number, number[]>();
+  private selectedTriangles = new Set<number>();
+  private selectionComponents: SelectionComponentExport[] = [];
+  private selectionMode: SelectionMode = 'click';
+  private selectionScreenRect: [number, number, number, number] | undefined;
+  private positionArray: ArrayLike<number> | null = null;
+  private normalArray: ArrayLike<number> | null = null;
+  private loadedFileName: string | null = null;
 
   constructor(private readonly options: ViewportOptions = {}) {
     this.scene.background = new Color(0x11161d);
@@ -63,8 +123,14 @@ export class StlViewport {
     const renderer = new WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.domElement.className = 'viewport-canvas';
+    renderer.domElement.addEventListener('pointerdown', this.handlePointerDown, { capture: true });
     container.append(renderer.domElement);
     this.renderer = renderer;
+
+    const selectionBox = document.createElement('div');
+    selectionBox.className = 'selection-box is-hidden';
+    container.append(selectionBox);
+    this.selectionBox = selectionBox;
 
     const controls = new OrbitControls(this.camera, renderer.domElement);
     controls.enableDamping = true;
@@ -76,6 +142,10 @@ export class StlViewport {
     this.applyDefaultMouseBindings();
     controls.addEventListener('change', this.handleControlsChange);
 
+    window.addEventListener('pointermove', this.handlePointerMove);
+    window.addEventListener('pointerup', this.handlePointerUp);
+    window.addEventListener('keydown', this.handleKeyDown);
+
     this.resize();
 
     if (typeof ResizeObserver !== 'undefined') {
@@ -85,6 +155,7 @@ export class StlViewport {
       window.addEventListener('resize', this.resize);
     }
 
+    this.emitSelectionChange();
     this.renderLoop();
   }
 
@@ -105,6 +176,12 @@ export class StlViewport {
     geometry.computeBoundingBox();
     geometry.computeVertexNormals();
 
+    const positionAttribute = geometry.getAttribute('position');
+    const normalAttribute = geometry.getAttribute('normal');
+    if (!positionAttribute) {
+      throw new Error('STL geometry has no position attribute');
+    }
+
     this.disposeMesh();
 
     const material = new MeshStandardMaterial({
@@ -116,6 +193,12 @@ export class StlViewport {
     const mesh = new Mesh(geometry, material);
     this.scene.add(mesh);
     this.mesh = mesh;
+    this.loadedFileName = file.name;
+    this.positionArray = positionAttribute.array;
+    this.normalArray = normalAttribute?.array ?? null;
+    this.triangleRecords = buildTriangleRecords(this.positionArray);
+    this.triangleAdjacency = buildTriangleAdjacency(this.positionArray);
+    this.setSelection(clearSelectionSet(), 'click');
 
     const bounds = geometry.boundingBox?.clone() ?? new Box3().setFromObject(mesh);
     this.currentFit = fitCameraToBounds(bounds, this.camera.fov, 1.35);
@@ -132,6 +215,53 @@ export class StlViewport {
 
   orientTo(key: OrientationKey): void {
     this.orientToDirection(getOrientationDirection(key), true);
+  }
+
+  clearSelection(): void {
+    this.setSelection(clearSelectionSet(), 'click');
+  }
+
+  exportContext(): ReturnType<typeof createSelectionContext> | null {
+    if (!this.loadedFileName || !this.container || !this.controls) {
+      return null;
+    }
+
+    const triangleIds = [...this.selectedTriangles].sort((left, right) => left - right);
+    const viewToTarget = this.controls.target.clone().sub(this.camera.position);
+    const orientationDirection = this.camera.position.clone().sub(this.controls.target);
+
+    const payload = createSelectionContext({
+      fileName: this.loadedFileName,
+      view: {
+        cameraPosition: toVectorTuple(this.camera.position),
+        target: toVectorTuple(this.controls.target),
+        up: toVectorTuple(this.camera.up),
+        fov: roundNumber(this.camera.fov),
+        viewDirection: toVectorTuple(viewToTarget.normalize()),
+        dominantOrientation: getClosestOrientationKey(orientationDirection),
+        viewportSize: [
+          Math.round(this.container.clientWidth || 0),
+          Math.round(this.container.clientHeight || 0),
+        ],
+      },
+      selection: {
+        mode: this.selectionMode,
+        triangleIds,
+        ...(this.selectionScreenRect ? { screenRect: this.selectionScreenRect } : {}),
+      },
+      components: this.selectionComponents,
+    });
+
+    const content = JSON.stringify(payload, null, 2);
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = buildContextFileName(new Date());
+    link.click();
+    URL.revokeObjectURL(url);
+
+    return payload;
   }
 
   private orientToDirection(direction: Vector3, animated: boolean): void {
@@ -195,9 +325,317 @@ export class StlViewport {
     this.options.onOrientationChange?.(getClosestOrientationKey(direction));
   }
 
+  private emitSelectionChange(): void {
+    this.options.onSelectionChange?.({
+      triangleCount: this.selectedTriangles.size,
+      componentCount: this.selectionComponents.length,
+      mode: this.selectionMode,
+    });
+  }
+
   private handleControlsChange = (): void => {
     this.emitOrientation();
   };
+
+  private handlePointerDown = (event: PointerEvent): void => {
+    if (!this.renderer || !this.mesh || event.button !== 0) {
+      return;
+    }
+
+    const point = this.getViewportPoint(event);
+    if (!point) {
+      return;
+    }
+
+    const modifier = getSelectionModifier(event);
+    const allowsBoxSelection = event.shiftKey || event.ctrlKey || event.metaKey;
+
+    this.pointerSelection = {
+      start: point,
+      moved: false,
+      modifier,
+      allowsBoxSelection,
+    };
+
+    if (allowsBoxSelection) {
+      if (this.controls) {
+        this.controls.enabled = false;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
+
+  private handlePointerMove = (event: PointerEvent): void => {
+    if (this.boxSelection) {
+      const point = this.getViewportPoint(event);
+      if (!point) {
+        return;
+      }
+
+      this.boxSelection.current = point;
+      this.updateSelectionBox(this.boxSelection.start, point);
+      return;
+    }
+
+    if (!this.pointerSelection) {
+      return;
+    }
+
+    const point = this.getViewportPoint(event);
+    if (!point) {
+      return;
+    }
+
+    if (point.distanceTo(this.pointerSelection.start) <= CLICK_MOVE_THRESHOLD) {
+      return;
+    }
+
+    this.pointerSelection.moved = true;
+
+    if (!this.pointerSelection.allowsBoxSelection) {
+      return;
+    }
+
+    this.boxSelection = {
+      ...this.pointerSelection,
+      current: point,
+    };
+    this.updateSelectionBox(this.boxSelection.start, point);
+  };
+
+  private handlePointerUp = (event: PointerEvent): void => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    if (this.boxSelection) {
+      const point = this.getViewportPoint(event) ?? this.boxSelection.current;
+      this.boxSelection.current = point;
+      const rect = toScreenRect(this.boxSelection.start, point);
+      const triangleIds = this.collectTrianglesInRect(rect);
+
+      this.commitSelection(triangleIds, this.boxSelection.modifier, 'box', rect);
+      this.finishBoxSelection();
+      return;
+    }
+
+    if (!this.pointerSelection) {
+      return;
+    }
+
+    const point = this.getViewportPoint(event);
+    const selection = this.pointerSelection;
+    this.pointerSelection = null;
+
+    if (!point) {
+      return;
+    }
+
+    if (point.distanceTo(selection.start) > CLICK_MOVE_THRESHOLD) {
+      selection.moved = true;
+    }
+
+    if (selection.moved) {
+      if (selection.allowsBoxSelection && this.controls) {
+        this.controls.enabled = true;
+      }
+      return;
+    }
+
+    const triangleId = this.pickTriangle(point);
+    if (triangleId === null) {
+      if (selection.allowsBoxSelection && this.controls) {
+        this.controls.enabled = true;
+      }
+      return;
+    }
+
+    this.commitSelection([triangleId], selection.modifier, 'click');
+    if (selection.allowsBoxSelection && this.controls) {
+      this.controls.enabled = true;
+    }
+  };
+
+  private handleKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape') {
+      return;
+    }
+
+    this.finishBoxSelection();
+  };
+
+  private commitSelection(
+    triangleIds: Iterable<number>,
+    modifier: SelectionModifier,
+    mode: SelectionMode,
+    screenRect?: [number, number, number, number],
+  ): void {
+    let nextSelection: Set<number>;
+    switch (modifier) {
+      case 'add':
+        nextSelection = addTriangles(this.selectedTriangles, triangleIds);
+        break;
+      case 'subtract':
+        nextSelection = removeTriangles(this.selectedTriangles, triangleIds);
+        break;
+      case 'replace':
+      default:
+        nextSelection = replaceSelection(this.selectedTriangles, triangleIds);
+        break;
+    }
+
+    this.setSelection(nextSelection, mode, screenRect);
+  }
+
+  private setSelection(
+    nextSelection: Set<number>,
+    mode: SelectionMode,
+    screenRect?: [number, number, number, number],
+  ): void {
+    this.selectedTriangles = nextSelection;
+    this.selectionMode = mode;
+    this.selectionScreenRect = screenRect;
+    this.selectionComponents = buildSelectionComponents(this.selectedTriangles, this.triangleRecords, this.triangleAdjacency);
+    this.syncHighlightMesh();
+    this.emitSelectionChange();
+    this.renderOnce();
+  }
+
+  private collectTrianglesInRect(rect: [number, number, number, number]): number[] {
+    const selected: number[] = [];
+
+    for (const record of this.triangleRecords) {
+      const screenPoint = this.projectPointToViewport(record.centroid);
+      if (!screenPoint || !isPointInRect(screenPoint, rect)) {
+        continue;
+      }
+
+      if (!this.isTriangleFacingCamera(record) || !this.isTriangleVisible(record.id, screenPoint)) {
+        continue;
+      }
+
+      selected.push(record.id);
+    }
+
+    return selected.sort((left, right) => left - right);
+  }
+
+  private pickTriangle(point: Vector2): number | null {
+    if (!this.renderer || !this.mesh) {
+      return null;
+    }
+
+    this.raycaster.setFromCamera(toNdcPoint(point, this.renderer.domElement), this.camera);
+    const hit = this.raycaster.intersectObject(this.mesh, false)[0];
+
+    return getTriangleId(hit?.faceIndex);
+  }
+
+  private isTriangleVisible(triangleId: number, screenPoint: Vector2): boolean {
+    if (!this.renderer || !this.mesh) {
+      return false;
+    }
+
+    this.raycaster.setFromCamera(toNdcPoint(screenPoint, this.renderer.domElement), this.camera);
+    const hit = this.raycaster.intersectObject(this.mesh, false)[0];
+
+    return getTriangleId(hit?.faceIndex) === triangleId;
+  }
+
+  private isTriangleFacingCamera(record: TriangleRecord): boolean {
+    const toCamera = this.camera.position.clone().sub(record.centroid);
+    return record.normal.dot(toCamera) > 0;
+  }
+
+  private projectPointToViewport(point: Vector3): Vector2 | null {
+    if (!this.renderer) {
+      return null;
+    }
+
+    const projected = point.clone().project(this.camera);
+    if (projected.z < -1 || projected.z > 1) {
+      return null;
+    }
+
+    const width = this.renderer.domElement.clientWidth || this.renderer.domElement.width || 1;
+    const height = this.renderer.domElement.clientHeight || this.renderer.domElement.height || 1;
+
+    return new Vector2((projected.x * 0.5 + 0.5) * width, (1 - (projected.y * 0.5 + 0.5)) * height);
+  }
+
+  private updateSelectionBox(start: Vector2, end: Vector2): void {
+    if (!this.selectionBox) {
+      return;
+    }
+
+    const [left, top, right, bottom] = toScreenRect(start, end);
+    this.selectionBox.classList.remove('is-hidden');
+    this.selectionBox.style.left = `${left}px`;
+    this.selectionBox.style.top = `${top}px`;
+    this.selectionBox.style.width = `${Math.max(right - left, 1)}px`;
+    this.selectionBox.style.height = `${Math.max(bottom - top, 1)}px`;
+  }
+
+  private finishBoxSelection(): void {
+    this.boxSelection = null;
+    this.pointerSelection = null;
+    if (this.controls) {
+      this.controls.enabled = true;
+    }
+    if (this.selectionBox) {
+      this.selectionBox.classList.add('is-hidden');
+      this.selectionBox.style.width = '0';
+      this.selectionBox.style.height = '0';
+    }
+  }
+
+  private syncHighlightMesh(): void {
+    this.disposeHighlightMesh();
+
+    if (!this.mesh || !this.positionArray || this.selectedTriangles.size === 0) {
+      return;
+    }
+
+    const positions: number[] = [];
+    const normals: number[] = [];
+
+    for (const triangleId of [...this.selectedTriangles].sort((left, right) => left - right)) {
+      const base = triangleId * POSITION_COMPONENTS;
+      for (let offset = 0; offset < POSITION_COMPONENTS; offset += 1) {
+        positions.push(this.positionArray[base + offset]);
+      }
+
+      if (this.normalArray) {
+        for (let offset = 0; offset < POSITION_COMPONENTS; offset += 1) {
+          normals.push(this.normalArray[base + offset]);
+        }
+      } else {
+        const normal = this.triangleRecords[triangleId]?.normal ?? new Vector3(0, 0, 1);
+        for (let count = 0; count < VECTOR_COMPONENTS; count += 1) {
+          normals.push(normal.x, normal.y, normal.z);
+        }
+      }
+    }
+
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new Float32BufferAttribute(positions, VECTOR_COMPONENTS));
+    geometry.setAttribute('normal', new Float32BufferAttribute(normals, VECTOR_COMPONENTS));
+
+    const material = new MeshBasicMaterial({
+      color: SELECTION_FILL_COLOR,
+      opacity: 0.45,
+      transparent: true,
+      side: DoubleSide,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    });
+
+    this.highlightMesh = new Mesh(geometry, material);
+    this.scene.add(this.highlightMesh);
+  }
 
   private renderOnce(): void {
     if (!this.renderer) {
@@ -220,7 +658,25 @@ export class StlViewport {
     this.renderer.setSize(width, height, false);
   };
 
+  private getViewportPoint(event: PointerEvent): Vector2 | null {
+    if (!this.renderer) {
+      return null;
+    }
+
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    if (x < 0 || y < 0 || x > rect.width || y > rect.height) {
+      return null;
+    }
+
+    return new Vector2(x, y);
+  }
+
   private disposeMesh(): void {
+    this.disposeHighlightMesh();
+
     if (!this.mesh) {
       return;
     }
@@ -234,6 +690,143 @@ export class StlViewport {
     }
     this.mesh = null;
   }
+
+  private disposeHighlightMesh(): void {
+    if (!this.highlightMesh) {
+      return;
+    }
+
+    this.scene.remove(this.highlightMesh);
+    this.highlightMesh.geometry.dispose();
+    if (Array.isArray(this.highlightMesh.material)) {
+      this.highlightMesh.material.forEach(disposeMaterial);
+    } else {
+      disposeMaterial(this.highlightMesh.material);
+    }
+    this.highlightMesh = null;
+  }
+}
+
+function buildTriangleRecords(positionArray: ArrayLike<number>): TriangleRecord[] {
+  const records: TriangleRecord[] = [];
+  const triangleCount = Math.floor(positionArray.length / POSITION_COMPONENTS);
+
+  for (let triangleId = 0; triangleId < triangleCount; triangleId += 1) {
+    const base = triangleId * POSITION_COMPONENTS;
+    const a = new Vector3(positionArray[base], positionArray[base + 1], positionArray[base + 2]);
+    const b = new Vector3(positionArray[base + 3], positionArray[base + 4], positionArray[base + 5]);
+    const c = new Vector3(positionArray[base + 6], positionArray[base + 7], positionArray[base + 8]);
+    const centroid = a.clone().add(b).add(c).multiplyScalar(1 / 3);
+    const cross = b.clone().sub(a).cross(c.clone().sub(a));
+    const area = cross.length() * 0.5;
+    const normal = area > 0 ? cross.normalize() : new Vector3(0, 0, 1);
+    const bboxMin = new Vector3(
+      Math.min(a.x, b.x, c.x),
+      Math.min(a.y, b.y, c.y),
+      Math.min(a.z, b.z, c.z),
+    );
+    const bboxMax = new Vector3(
+      Math.max(a.x, b.x, c.x),
+      Math.max(a.y, b.y, c.y),
+      Math.max(a.z, b.z, c.z),
+    );
+
+    records.push({
+      id: triangleId,
+      centroid,
+      normal,
+      area: roundNumber(area),
+      bboxMin,
+      bboxMax,
+    });
+  }
+
+  return records;
+}
+
+function buildSelectionComponents(
+  selectedTriangles: Set<number>,
+  triangleRecords: TriangleRecord[],
+  adjacency: Map<number, number[]>,
+): SelectionComponentExport[] {
+  return splitSelectionComponents(selectedTriangles, adjacency).map((triangleIds, index) => {
+    const centroid = new Vector3();
+    const avgNormal = new Vector3();
+    const bboxMin = new Vector3(Infinity, Infinity, Infinity);
+    const bboxMax = new Vector3(-Infinity, -Infinity, -Infinity);
+    let area = 0;
+    let weightSum = 0;
+
+    for (const triangleId of triangleIds) {
+      const record = triangleRecords[triangleId];
+      if (!record) {
+        continue;
+      }
+
+      const weight = record.area > 0 ? record.area : 1;
+      centroid.add(record.centroid.clone().multiplyScalar(weight));
+      avgNormal.add(record.normal.clone().multiplyScalar(weight));
+      bboxMin.min(record.bboxMin);
+      bboxMax.max(record.bboxMax);
+      area += record.area;
+      weightSum += weight;
+    }
+
+    if (weightSum > 0) {
+      centroid.multiplyScalar(1 / weightSum);
+      avgNormal.normalize();
+    }
+
+    return {
+      id: `sel_${index}`,
+      triangleIds,
+      centroid: toVectorTuple(centroid),
+      bboxMin: toVectorTuple(bboxMin),
+      bboxMax: toVectorTuple(bboxMax),
+      avgNormal: toVectorTuple(avgNormal),
+      area: roundNumber(area),
+    };
+  });
+}
+
+function toScreenRect(start: Vector2, end: Vector2): [number, number, number, number] {
+  const left = Math.round(Math.min(start.x, end.x));
+  const top = Math.round(Math.min(start.y, end.y));
+  const right = Math.round(Math.max(start.x, end.x));
+  const bottom = Math.round(Math.max(start.y, end.y));
+
+  return [left, top, right, bottom];
+}
+
+function isPointInRect(point: Vector2, rect: [number, number, number, number]): boolean {
+  return point.x >= rect[0] && point.x <= rect[2] && point.y >= rect[1] && point.y <= rect[3];
+}
+
+function toNdcPoint(point: Vector2, canvas: HTMLCanvasElement): Vector2 {
+  const width = canvas.clientWidth || canvas.width || 1;
+  const height = canvas.clientHeight || canvas.height || 1;
+  return new Vector2((point.x / width) * 2 - 1, -(point.y / height) * 2 + 1);
+}
+
+function toVectorTuple(vector: Vector3): [number, number, number] {
+  return [roundNumber(vector.x), roundNumber(vector.y), roundNumber(vector.z)];
+}
+
+function roundNumber(value: number): number {
+  return Number(value.toFixed(6));
+}
+
+function getTriangleId(faceIndex: number | null | undefined): number | null {
+  if (typeof faceIndex !== 'number' || faceIndex < 0) {
+    return null;
+  }
+
+  return faceIndex;
+}
+
+function buildContextFileName(date: Date): string {
+  const iso = date.toISOString().replace(/\.\d{3}Z$/, '');
+  return `context-${iso.replace(/:/g, '-')}.json`;
 }
 
 function disposeMaterial(material: Material): void {

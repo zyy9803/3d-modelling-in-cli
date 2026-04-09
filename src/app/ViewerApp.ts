@@ -1,10 +1,17 @@
 import { createFileDropzone, isStlFile } from '../ui/FileDropzone';
 import { type OrientationKey, renderOrientationGizmo } from '../viewer/orientation-gizmo';
-import { StlViewport } from '../viewer/StlViewport';
+import { StlViewport, type ViewportSelectionSummary } from '../viewer/StlViewport';
+
+const EMPTY_SELECTION_SUMMARY: ViewportSelectionSummary = {
+  triangleCount: 0,
+  componentCount: 0,
+  mode: 'click',
+};
 
 export class ViewerApp {
   private activeOrientation: OrientationKey | null = null;
   private viewport: StlViewport | null = null;
+  private selectionSummary = EMPTY_SELECTION_SUMMARY;
   private readonly viewportPanel: HTMLElement;
   private readonly viewportHost: HTMLElement;
   private readonly fileInput: HTMLInputElement;
@@ -13,8 +20,9 @@ export class ViewerApp {
   private readonly emptyState: HTMLElement;
   private readonly orientationRoot: HTMLElement;
   private readonly dropzoneRoot: HTMLElement;
+  private readonly selectionStatus: HTMLElement;
 
-  constructor(private root: HTMLElement) {
+  constructor(private readonly root: HTMLElement) {
     this.render();
     this.viewportPanel = this.requireElement<HTMLElement>('[data-viewport-panel]');
     this.viewportHost = this.requireElement<HTMLElement>('[data-viewport-host]');
@@ -25,8 +33,10 @@ export class ViewerApp {
     this.errorText = this.requireElement<HTMLElement>('[data-error-text]');
     this.emptyState = this.requireElement<HTMLElement>('[data-empty-state]');
     this.orientationRoot = this.requireElement<HTMLElement>('[data-orientation-root]');
+    this.selectionStatus = this.requireElement<HTMLElement>('[data-selection-status]');
 
     this.bindEvents();
+    this.updateSelectionStatus(this.selectionSummary);
     this.renderOrientationGizmo();
     this.mountViewport();
   }
@@ -53,7 +63,12 @@ export class ViewerApp {
           </section>
         </main>
         <footer class="toolbar">
-          <button type="button" data-reset-view>重置视角</button>
+          <div class="selection-status" data-selection-status></div>
+          <div class="toolbar-actions">
+            <button type="button" data-export-context>导出上下文</button>
+            <button type="button" data-clear-selection>清空选择</button>
+            <button type="button" data-reset-view>重置视角</button>
+          </div>
         </footer>
       </div>
     `;
@@ -71,6 +86,14 @@ export class ViewerApp {
 
     this.requireElement<HTMLButtonElement>('[data-reset-view]').addEventListener('click', () => {
       this.viewport?.resetView();
+    });
+
+    this.requireElement<HTMLButtonElement>('[data-clear-selection]').addEventListener('click', () => {
+      this.viewport?.clearSelection();
+    });
+
+    this.requireElement<HTMLButtonElement>('[data-export-context]').addEventListener('click', () => {
+      this.viewport?.exportContext();
     });
 
     this.viewportPanel.addEventListener('dragover', (event) => {
@@ -100,6 +123,9 @@ export class ViewerApp {
       onOrientationChange: (key) => {
         this.activeOrientation = key;
         this.renderOrientationGizmo();
+      },
+      onSelectionChange: (summary) => {
+        this.updateSelectionStatus(summary);
       },
     });
 
@@ -141,6 +167,11 @@ export class ViewerApp {
     });
   }
 
+  private updateSelectionStatus(summary: ViewportSelectionSummary): void {
+    this.selectionSummary = summary;
+    this.selectionStatus.textContent = formatSelectionStatus(summary);
+  }
+
   private showError(message: string): void {
     if (!message) {
       this.errorText.textContent = '';
@@ -159,6 +190,11 @@ export class ViewerApp {
     }
     return element;
   }
+}
+
+function formatSelectionStatus(summary: ViewportSelectionSummary): string {
+  const modeLabel = summary.mode === 'box' ? '框选' : '点选';
+  return `已选 ${summary.triangleCount} 个三角面 | ${summary.componentCount} 个连通块 | 当前选择：${modeLabel}`;
 }
 
 function formatFileSize(size: number): string {

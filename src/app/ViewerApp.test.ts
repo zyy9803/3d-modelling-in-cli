@@ -3,15 +3,24 @@ import { describe, expect, it } from 'vitest';
 import { ViewerApp } from './ViewerApp';
 
 describe('ViewerApp', () => {
-  it('renders the empty state and keeps only the reset action in the toolbar', () => {
+  it('renders the empty state and phase-2 toolbar actions', () => {
     const root = document.createElement('div');
 
     new ViewerApp(root);
 
     expect(root.textContent?.match(/拖拽 STL 文件到这里开始预览/g)?.length ?? 0).toBe(1);
     expect(root.querySelector('[data-dropzone-root]')?.textContent?.trim()).toBe('');
-    expect(root.querySelector<HTMLElement>('[data-reset-view]')?.textContent).toBe('重置视角');
-    expect(root.querySelectorAll('[data-mode]').length).toBe(0);
+    expect(root.querySelector('[data-export-context]')).not.toBeNull();
+    expect(root.querySelector('[data-clear-selection]')).not.toBeNull();
+    expect(root.querySelector('[data-reset-view]')).not.toBeNull();
+  });
+
+  it('renders the selection status bar', () => {
+    const root = document.createElement('div');
+
+    new ViewerApp(root);
+
+    expect(root.querySelector('[data-selection-status]')?.textContent).toContain('0');
   });
 
   it('renders the orientation gizmo buttons', () => {
