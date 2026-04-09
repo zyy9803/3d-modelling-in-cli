@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCodexTurnPrompt } from './codex-turn-prompt';
+import { buildCodexTurnPrompt } from './codex-turn-prompt.js';
 
 describe('buildCodexTurnPrompt', () => {
   it('formats the summary payload from the session request', () => {

@@ -31,6 +31,7 @@ import {
 } from './selection-context';
 import type {
   SelectionComponentPayload,
+  SelectionContextPayload,
   SelectionMode,
   ViewContextPayload,
 } from '../shared/codex-session-types';
@@ -239,6 +240,46 @@ export class StlViewport {
   }
 
   exportContext(): ReturnType<typeof createSelectionContext> | null {
+    const snapshot = this.buildViewportSnapshot();
+    if (!snapshot) {
+      return null;
+    }
+
+    const payload = createSelectionContext({
+      fileName: snapshot.fileName,
+      view: snapshot.viewContext,
+      selection: snapshot.selection,
+      components: snapshot.components,
+    });
+
+    const content = JSON.stringify(payload, null, 2);
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = buildContextFileName(new Date());
+    link.click();
+    URL.revokeObjectURL(url);
+
+    return payload;
+  }
+
+  buildChatPayload(): { selectionContext: ReturnType<typeof createChatSelectionContext>; viewContext: ViewContextPayload } | null {
+    const snapshot = this.buildViewportSnapshot();
+    if (!snapshot) {
+      return null;
+    }
+
+    return {
+      selectionContext: createChatSelectionContext({
+        selection: snapshot.selection,
+        components: snapshot.components,
+      }),
+      viewContext: snapshot.viewContext,
+    };
+  }
+
+  private buildViewportSnapshot(): ViewportSnapshot | null {
     if (!this.loadedFileName || !this.container || !this.controls) {
       return null;
     }
@@ -247,9 +288,9 @@ export class StlViewport {
     const viewToTarget = this.controls.target.clone().sub(this.camera.position);
     const orientationDirection = this.camera.position.clone().sub(this.controls.target);
 
-    const payload = createSelectionContext({
+    return {
       fileName: this.loadedFileName,
-      view: {
+      viewContext: {
         cameraPosition: toVectorTuple(this.camera.position),
         target: toVectorTuple(this.controls.target),
         up: toVectorTuple(this.camera.up),
@@ -267,50 +308,6 @@ export class StlViewport {
         ...(this.selectionScreenRect ? { screenRect: this.selectionScreenRect } : {}),
       },
       components: this.selectionComponents,
-    });
-
-    const content = JSON.stringify(payload, null, 2);
-    const blob = new Blob([content], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = buildContextFileName(new Date());
-    link.click();
-    URL.revokeObjectURL(url);
-
-    return payload;
-  }
-
-  buildChatPayload(): { selectionContext: ReturnType<typeof createChatSelectionContext>; viewContext: ViewContextPayload } | null {
-    if (!this.loadedFileName || !this.container || !this.controls) {
-      return null;
-    }
-
-    const triangleIds = [...this.selectedTriangles].sort((left, right) => left - right);
-    const viewToTarget = this.controls.target.clone().sub(this.camera.position);
-    const orientationDirection = this.camera.position.clone().sub(this.controls.target);
-
-    return {
-      selectionContext: createChatSelectionContext({
-        selection: {
-          mode: this.selectionMode,
-          triangleIds,
-          ...(this.selectionScreenRect ? { screenRect: this.selectionScreenRect } : {}),
-        },
-        components: this.selectionComponents,
-      }),
-      viewContext: {
-        cameraPosition: toVectorTuple(this.camera.position),
-        target: toVectorTuple(this.controls.target),
-        up: toVectorTuple(this.camera.up),
-        fov: roundNumber(this.camera.fov),
-        viewDirection: toVectorTuple(viewToTarget.normalize()),
-        dominantOrientation: getClosestOrientationKey(orientationDirection),
-        viewportSize: [
-          Math.round(this.container.clientWidth || 0),
-          Math.round(this.container.clientHeight || 0),
-        ],
-      },
     };
   }
 
@@ -889,3 +886,10 @@ function buildContextFileName(date: Date): string {
 function disposeMaterial(material: Material): void {
   material.dispose();
 }
+
+type ViewportSnapshot = {
+  fileName: string;
+  viewContext: ViewContextPayload;
+  selection: SelectionContextPayload;
+  components: SelectionComponentPayload[];
+};

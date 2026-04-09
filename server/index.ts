@@ -27,8 +27,20 @@ export function createServer(): http.Server {
 export async function startServer(listenPort: number = port): Promise<http.Server> {
   const server = createServer();
 
-  await new Promise<void>((resolve) => {
-    server.listen(listenPort, () => resolve());
+  await new Promise<void>((resolve, reject) => {
+    const onListening = (): void => {
+      server.off('error', onError);
+      resolve();
+    };
+
+    const onError = (error: Error): void => {
+      server.off('listening', onListening);
+      server.close(() => reject(error));
+    };
+
+    server.once('listening', onListening);
+    server.once('error', onError);
+    server.listen(listenPort);
   });
 
   console.log(`Codex server scaffold listening on http://localhost:${listenPort}`);

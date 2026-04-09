@@ -25,7 +25,7 @@ export type SelectionComponentPayload = {
 };
 
 export type SelectionContextPayload = {
-  mode: 'click' | 'box';
+  mode: SelectionMode;
   triangleIds: number[];
   screenRect?: [number, number, number, number];
   components: SelectionComponentPayload[];
