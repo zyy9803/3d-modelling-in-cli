@@ -52,10 +52,20 @@ export type SessionMessageRequest = {
   viewContext: ViewContextPayload;
 };
 
+export type SessionInterruptRequest = {
+  sessionId: string;
+};
+
 export type SessionModelSwitchRequest = {
   sessionId: string;
   activeModelId: string | null;
   modelLabel: string | null;
+};
+
+export type DecisionOption = {
+  label: string;
+  description: string;
+  value: string;
 };
 
 export type DecisionQuestion = {
@@ -63,25 +73,52 @@ export type DecisionQuestion = {
   header: string;
   question: string;
   allowOther: boolean;
-  options: Array<{
-    label: string;
-    description: string;
-  }>;
+  options: DecisionOption[];
 };
 
-export type SessionDecisionCard = {
-  id: string;
-  kind: 'approval' | 'user_input';
-  title: string;
-  body: string;
-  questions: DecisionQuestion[];
-};
+export type SessionActivityKind = 'command_execution' | 'tool_call' | 'plan' | 'approval';
+
+export type SessionDecisionCard =
+  | {
+      id: string;
+      kind: 'user_input';
+      title: string;
+      body: string;
+      questions: DecisionQuestion[];
+    }
+  | {
+      id: string;
+      kind: 'command_execution';
+      title: string;
+      body: string;
+      command: string | null;
+      cwd: string | null;
+      questions: DecisionQuestion[];
+    }
+  | {
+      id: string;
+      kind: 'file_change';
+      title: string;
+      body: string;
+      grantRoot: string | null;
+      questions: DecisionQuestion[];
+    }
+  | {
+      id: string;
+      kind: 'permissions';
+      title: string;
+      body: string;
+      permissionsSummary: string;
+      questions: DecisionQuestion[];
+    };
 
 export type SessionDecisionRequest = {
   sessionId: string;
   decisionId: string;
   answers: Record<string, string>;
 };
+
+export type StreamMessageRole = 'assistant' | 'reasoning';
 
 export type SessionStreamEvent =
   | {
@@ -100,16 +137,39 @@ export type SessionStreamEvent =
   | {
       type: 'message_started';
       messageId: string;
-      role: 'assistant';
+      role: StreamMessageRole;
+      title?: string;
     }
   | {
       type: 'message_delta';
       messageId: string;
       delta: string;
+      replace?: boolean;
     }
   | {
       type: 'message_completed';
       messageId: string;
+    }
+  | {
+      type: 'activity_started';
+      activityId: string;
+      activityKind: SessionActivityKind;
+      title: string;
+      detail?: string;
+      text?: string;
+    }
+  | {
+      type: 'activity_delta';
+      activityId: string;
+      delta: string;
+      replace?: boolean;
+    }
+  | {
+      type: 'activity_completed';
+      activityId: string;
+      detail?: string;
+      text?: string;
+      replace?: boolean;
     }
   | {
       type: 'needs_decision';
@@ -122,6 +182,10 @@ export type SessionStreamEvent =
   | {
       type: 'session_resumed';
       decisionId: string;
+    }
+  | {
+      type: 'turn_interrupted';
+      turnId: string;
     }
   | {
       type: 'model_switched';

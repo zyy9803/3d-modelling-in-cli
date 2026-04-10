@@ -306,6 +306,7 @@ export class StlViewport {
         mode: this.selectionMode,
         triangleIds,
         ...(this.selectionScreenRect ? { screenRect: this.selectionScreenRect } : {}),
+        components: []
       },
       components: this.selectionComponents,
     };

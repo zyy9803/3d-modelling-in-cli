@@ -2,6 +2,7 @@ import type {
   ChatSessionStatus,
   CodexConnectionStatus,
   SessionDecisionRequest,
+  SessionInterruptRequest,
   SessionMessageRequest,
   SessionModelSwitchRequest,
   SessionStreamEvent,
@@ -17,17 +18,31 @@ export type SessionStatusResponse = {
 
 type SessionClientOptions = {
   onEvent: (event: SessionStreamEvent) => void;
-  onConnectionError?: (error: Error) => void;
 };
 
 export class SessionClient {
   private eventSource: EventSource | null = null;
 
-  constructor(private readonly baseUrl = '') {}
+  constructor(private readonly baseUrl = resolveDefaultBaseUrl()) {}
 
-  async getStatus(): Promise<SessionStatusResponse> {
-    const response = await fetch(this.resolveUrl('/api/status'));
-    return await this.parseJsonResponse<SessionStatusResponse>(response);
+  async getStatus(options: { retries?: number; retryDelayMs?: number } = {}): Promise<SessionStatusResponse> {
+    const retries = options.retries ?? 8;
+    const retryDelayMs = options.retryDelayMs ?? 500;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < retries; attempt += 1) {
+      try {
+        const response = await fetch(this.resolveUrl('/api/status'));
+        return await this.parseJsonResponse<SessionStatusResponse>(response);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Failed to fetch session status.');
+        if (attempt < retries - 1) {
+          await delay(retryDelayMs);
+        }
+      }
+    }
+
+    throw lastError ?? new Error('Failed to fetch session status.');
   }
 
   connect(options: SessionClientOptions): () => void {
@@ -45,7 +60,14 @@ export class SessionClient {
       }
     };
     eventSource.onerror = () => {
-      options.onConnectionError?.(new Error('Session stream connection failed'));
+      options.onEvent({
+        type: 'connection_status_changed',
+        connectionStatus: eventSource.readyState === EventSource.CLOSED ? 'disconnected' : 'starting',
+        message:
+          eventSource.readyState === EventSource.CLOSED
+            ? 'Session stream disconnected. Retrying...'
+            : 'Waiting for local session server...',
+      });
     };
 
     this.eventSource = eventSource;
@@ -63,6 +85,10 @@ export class SessionClient {
 
   async sendDecision(payload: SessionDecisionRequest): Promise<void> {
     await this.postJson('/api/session/decision', payload);
+  }
+
+  async interrupt(payload: SessionInterruptRequest): Promise<void> {
+    await this.postJson('/api/session/interrupt', payload);
   }
 
   async switchModel(payload: SessionModelSwitchRequest): Promise<void> {
@@ -114,4 +140,20 @@ function safeParseEvent(data: unknown): SessionStreamEvent | null {
   } catch {
     return null;
   }
+}
+
+function resolveDefaultBaseUrl(): string {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  if (window.location.port === '4178') {
+    return '';
+  }
+
+  return 'http://127.0.0.1:4178';
+}
+
+async function delay(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -1,8 +1,9 @@
-import type { ChatMessage, ChatStoreState } from './chat-store';
+import type { ChatActivity, ChatMessage, ChatStoreState, ChatTimelineEntry } from './chat-store';
 import type { SessionDecisionCard } from '../shared/codex-session-types';
 
 export type ChatPanelHandlers = {
   onSend: (text: string) => void | Promise<void>;
+  onInterrupt: () => void | Promise<void>;
   onClearSession: () => void | Promise<void>;
   onDecision: (decisionId: string, answers: Record<string, string>) => void | Promise<void>;
 };
@@ -43,10 +44,15 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
   const sessionStatusText = document.createElement('span');
   const modelText = document.createElement('span');
 
+  const interruptButton = document.createElement('button');
+  interruptButton.type = 'button';
+  interruptButton.dataset.interruptTurn = 'true';
+  interruptButton.textContent = '中断';
+
   const clearButton = document.createElement('button');
   clearButton.type = 'button';
   clearButton.dataset.clearSession = 'true';
-  clearButton.textContent = '\u6e05\u7a7a\u4f1a\u8bdd';
+  clearButton.textContent = '清空会话';
 
   const header = document.createElement('header');
   header.className = 'chat-panel__header';
@@ -62,7 +68,11 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
   const headerLeft = document.createElement('div');
   headerLeft.append(statusRow, metaRow);
 
-  header.append(headerLeft, clearButton);
+  const headerActions = document.createElement('div');
+  headerActions.className = 'chat-panel__header-actions';
+  headerActions.append(interruptButton, clearButton);
+
+  header.append(headerLeft, headerActions);
 
   const contextStrip = document.createElement('section');
   contextStrip.className = 'chat-panel__context';
@@ -85,18 +95,27 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
   const input = document.createElement('textarea');
   input.dataset.chatInput = 'true';
   input.rows = 4;
-  input.placeholder = '\u8f93\u5165\u4f60\u5e0c\u671b Codex \u5904\u7406\u7684\u4fee\u6539\u8bf4\u660e';
+  input.placeholder = '输入你希望 Codex 处理的修改说明';
+
+  const composerActions = document.createElement('div');
+  composerActions.className = 'chat-panel__composer-actions';
 
   const sendButton = document.createElement('button');
   sendButton.type = 'submit';
-  sendButton.textContent = '\u53d1\u9001';
+  sendButton.dataset.chatSend = 'true';
+  sendButton.textContent = '发送';
 
-  composer.append(input, sendButton);
+  composerActions.append(sendButton);
+  composer.append(input, composerActions);
 
   root.append(header, contextStrip, messages, decisionHost, composer);
 
   clearButton.addEventListener('click', () => {
     void handlers.onClearSession();
+  });
+
+  interruptButton.addEventListener('click', () => {
+    void handlers.onInterrupt();
   });
 
   composer.addEventListener('submit', (event) => {
@@ -112,16 +131,20 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
 
   function render(state: ChatPanelState): void {
     renderConnectionStatus(statusLight, connectionText, state.connectionStatus, state.connectionMessage);
-    sessionStatusText.textContent = `\u4f1a\u8bdd\u72b6\u6001\uff1a${formatSessionStatus(state.sessionStatus)}`;
-    modelText.textContent = `\u5f53\u524d\u6a21\u578b\uff1a${state.modelLabel ?? state.activeModelId ?? '\u672a\u52a0\u8f7d'}`;
-    triangleCount.textContent = `\u5df2\u9009\u4e09\u89d2\u9762\uff1a${state.contextSummary.triangleCount}`;
-    componentCount.textContent = `\u8fde\u901a\u5757\uff1a${state.contextSummary.componentCount}`;
-    orientation.textContent = `\u65b9\u5411\uff1a${state.contextSummary.orientation}`;
+    sessionStatusText.textContent = `会话状态：${formatSessionStatus(state.sessionStatus)}`;
+    modelText.textContent = `当前模型：${state.modelLabel ?? state.activeModelId ?? '未加载'}`;
+    triangleCount.textContent = `已选三角面：${state.contextSummary.triangleCount}`;
+    componentCount.textContent = `连通块：${state.contextSummary.componentCount}`;
+    orientation.textContent = `方向：${state.contextSummary.orientation}`;
     messages.innerHTML = renderMessageList(state.messages);
     decisionHost.innerHTML = state.pendingDecision ? renderDecisionCardMarkup(state.pendingDecision) : '';
     bindDecisionCard(decisionHost, handlers);
     root.dataset.sessionStatus = state.sessionStatus;
     root.dataset.connectionStatus = state.connectionStatus;
+    interruptButton.disabled = state.sessionStatus !== 'streaming';
+    input.disabled = state.sessionStatus === 'waiting_decision' || state.sessionStatus === 'resuming';
+    sendButton.disabled = state.sessionStatus === 'waiting_decision' || state.sessionStatus === 'resuming';
+    sendButton.textContent = state.sessionStatus === 'streaming' ? '追加' : '发送';
   }
 
   function focusInput(): void {
@@ -146,31 +169,118 @@ function renderConnectionStatus(
   connectionText.dataset.codexConnectionMessage = 'true';
 }
 
-function renderMessageList(messages: ChatMessage[]): string {
-  if (messages.length === 0) {
-    return '<div class="chat-panel__empty">\u8fd8\u6ca1\u6709\u6d88\u606f</div>';
+function renderMessageList(messages: ChatTimelineEntry[]): string {
+  const visibleMessages = messages.filter((message) => {
+    if (message.kind !== 'message' || message.role !== 'reasoning') {
+      return true;
+    }
+
+    return message.text.trim().length > 0;
+  });
+
+  if (visibleMessages.length === 0) {
+    return '<div class="chat-panel__empty">还没有消息</div>';
   }
 
-  return messages.map((message) => renderMessage(message)).join('');
+  return visibleMessages.map((message) => renderTimelineEntry(message)).join('');
+}
+
+function renderTimelineEntry(message: ChatTimelineEntry): string {
+  return message.kind === 'activity' ? renderActivity(message) : renderMessage(message);
 }
 
 function renderMessage(message: ChatMessage): string {
+  const title = message.title ? `<span class="chat-message__title">${escapeHtml(message.title)}</span>` : '';
+  const status = message.status
+    ? `<span class="chat-message__status">${formatEntryStatus(message.status)}</span>`
+    : '';
+
+  if (message.role === 'reasoning' && message.text.trim().length > 0) {
+    return renderCollapsibleCard({
+      id: message.id,
+      className: `chat-message chat-message--${message.role}`,
+      roleLabel: labelForRole(message.role),
+      title,
+      status,
+      body: `<div class="chat-message__text">${escapeHtml(message.text)}</div>`,
+    });
+  }
+
   return `
     <article class="chat-message chat-message--${message.role}" data-message-id="${escapeHtml(message.id)}">
       <div class="chat-message__header">
         <span class="chat-message__role">${labelForRole(message.role)}</span>
-        ${
-          message.status
-            ? `<span class="chat-message__status">${message.status === 'streaming' ? '\u6d41\u5f0f\u4e2d' : '\u5b8c\u6210'}</span>`
-            : ''
-        }
+        <div class="chat-message__meta">${title}${status}</div>
       </div>
       <div class="chat-message__text">${escapeHtml(message.text || ' ')}</div>
     </article>
   `;
 }
 
+function renderActivity(activity: ChatActivity): string {
+  const title = `<span class="chat-message__title">${escapeHtml(activity.title)}</span>`;
+  const status = activity.status
+    ? `<span class="chat-message__status">${formatEntryStatus(activity.status)}</span>`
+    : '';
+  const detail = activity.detail
+    ? `<div class="chat-message__detail">${escapeHtml(activity.detail)}</div>`
+    : '';
+  const text = activity.text.trim().length > 0 ? `<div class="chat-message__text">${escapeHtml(activity.text)}</div>` : '';
+  const body = `${detail}${text}`.trim();
+
+  if (body.length === 0) {
+    return `
+      <article
+        class="chat-message chat-message--activity chat-message--activity-${escapeHtml(activity.activityKind)}"
+        data-message-id="${escapeHtml(activity.id)}"
+      >
+        <div class="chat-message__header">
+          <span class="chat-message__role">${labelForActivityKind(activity.activityKind)}</span>
+          <div class="chat-message__meta">${title}${status}</div>
+        </div>
+      </article>
+    `;
+  }
+
+  return renderCollapsibleCard({
+    id: activity.id,
+    className: `chat-message chat-message--activity chat-message--activity-${escapeHtml(activity.activityKind)}`,
+    roleLabel: labelForActivityKind(activity.activityKind),
+    title,
+    status,
+    body,
+  });
+}
+
+function renderCollapsibleCard(options: {
+  id: string;
+  className: string;
+  roleLabel: string;
+  title: string;
+  status: string;
+  body: string;
+}): string {
+  return `
+    <details
+      class="${options.className} chat-message--collapsible"
+      data-message-id="${escapeHtml(options.id)}"
+      data-collapsible-card="true"
+    >
+      <summary class="chat-message__summary">
+        <div class="chat-message__header">
+          <span class="chat-message__role">${escapeHtml(options.roleLabel)}</span>
+          <div class="chat-message__meta">${options.title}${options.status}</div>
+        </div>
+      </summary>
+      <div class="chat-message__body">
+        ${options.body}
+      </div>
+    </details>
+  `;
+}
+
 function renderDecisionCardMarkup(decision: SessionDecisionCard): string {
+  const detailMarkup = renderDecisionDetails(decision);
   const questions = decision.questions
     .map((question) => {
       const optionButtons = question.options.length > 0
@@ -182,28 +292,27 @@ function renderDecisionCardMarkup(decision: SessionDecisionCard): string {
                   class="chat-decision__option"
                   data-decision-option="true"
                   data-question-id="${escapeHtml(question.id)}"
-                  data-answer="${escapeHtml(option.label)}"
+                  data-answer="${escapeHtml(option.value)}"
                 >
-                  ${escapeHtml(option.label)}
+                  <strong>${escapeHtml(option.label)}</strong>
                   <span>${escapeHtml(option.description)}</span>
                 </button>
               `,
             )
             .join('')
-        : '<div class="chat-decision__hint">\u6ca1\u6709\u53ef\u9009\u9879\uff0c\u8bf7\u586b\u5199\u81ea\u5b9a\u4e49\u7b54\u6848\u3002</div>';
+        : '<div class="chat-decision__hint">没有可选项，请填写自定义答案。</div>';
 
       return `
         <fieldset class="chat-decision__question" data-question-id="${escapeHtml(question.id)}">
           <legend>${escapeHtml(question.header)}</legend>
           <p>${escapeHtml(question.question)}</p>
-          <input type="hidden" data-selected-answer value="" />
           <div class="chat-decision__option-list">${optionButtons}</div>
           ${
             question.allowOther
               ? `
                 <label class="chat-decision__other">
-                  <span>\u5176\u4ed6\u7b54\u6848</span>
-                  <input type="text" data-other-answer placeholder="\u8f93\u5165\u5176\u4ed6\u7b54\u6848" />
+                  <span>其他答案</span>
+                  <input type="text" data-other-answer placeholder="输入其他答案" />
                 </label>
               `
               : ''
@@ -219,12 +328,38 @@ function renderDecisionCardMarkup(decision: SessionDecisionCard): string {
         <h3>${escapeHtml(decision.title)}</h3>
         <p>${escapeHtml(decision.body)}</p>
       </header>
+      ${detailMarkup}
       <div class="chat-decision__questions">${questions}</div>
       <footer class="chat-decision__footer">
-        <button type="button" data-decision-submit="true">\u63d0\u4ea4\u51b3\u7b56</button>
+        <button type="button" data-decision-submit="true">提交决策</button>
       </footer>
     </section>
   `;
+}
+
+function renderDecisionDetails(decision: SessionDecisionCard): string {
+  switch (decision.kind) {
+    case 'command_execution':
+      return `
+        <div class="chat-decision__details">
+          ${decision.command ? `<div><strong>Command</strong><pre>${escapeHtml(decision.command)}</pre></div>` : ''}
+          ${decision.cwd ? `<div><strong>Cwd</strong><pre>${escapeHtml(decision.cwd)}</pre></div>` : ''}
+        </div>
+      `;
+    case 'file_change':
+      return decision.grantRoot
+        ? `<div class="chat-decision__details"><div><strong>Grant Root</strong><pre>${escapeHtml(decision.grantRoot)}</pre></div></div>`
+        : '';
+    case 'permissions':
+      return `
+        <div class="chat-decision__details">
+          <div><strong>Permissions</strong><pre>${escapeHtml(decision.permissionsSummary)}</pre></div>
+        </div>
+      `;
+    case 'user_input':
+    default:
+      return '';
+  }
 }
 
 function bindDecisionCard(host: HTMLElement, handlers: ChatPanelHandlers): void {
@@ -267,11 +402,6 @@ function bindDecisionCard(host: HTMLElement, handlers: ChatPanelHandlers): void 
         if (otherInput) {
           otherInput.value = '';
         }
-
-        const hiddenInput = questionElement.querySelector<HTMLInputElement>('[data-selected-answer]');
-        if (hiddenInput) {
-          hiddenInput.value = answer;
-        }
       });
     });
 
@@ -286,11 +416,6 @@ function bindDecisionCard(host: HTMLElement, handlers: ChatPanelHandlers): void 
         questionElement.querySelectorAll<HTMLButtonElement>('[data-decision-option]').forEach((optionButton) => {
           optionButton.classList.remove('is-selected');
         });
-
-        const hiddenInput = questionElement.querySelector<HTMLInputElement>('[data-selected-answer]');
-        if (hiddenInput) {
-          hiddenInput.value = '';
-        }
       });
     }
   });
@@ -320,34 +445,64 @@ function bindDecisionCard(host: HTMLElement, handlers: ChatPanelHandlers): void 
 function formatSessionStatus(status: ChatPanelState['sessionStatus']): string {
   switch (status) {
     case 'idle':
-      return '\u7a7a\u95f2';
+      return '空闲';
     case 'sending':
-      return '\u53d1\u9001\u4e2d';
+      return '发送中';
     case 'streaming':
-      return '\u6d41\u5f0f\u8f93\u51fa\u4e2d';
+      return '流式输出中';
     case 'waiting_decision':
-      return '\u7b49\u5f85\u51b3\u7b56';
+      return '等待决策';
     case 'resuming':
-      return '\u6062\u590d\u4e2d';
+      return '恢复中';
     case 'completed':
-      return '\u5df2\u5b8c\u6210';
+      return '已完成';
     case 'failed':
-      return '\u5931\u8d25';
+      return '失败';
     default:
       return status;
+  }
+}
+
+function formatEntryStatus(status: ChatMessage['status']): string {
+  switch (status) {
+    case 'streaming':
+      return '流式中';
+    case 'completed':
+      return '完成';
+    case 'interrupted':
+      return '已中断';
+    default:
+      return '';
   }
 }
 
 function labelForRole(role: ChatMessage['role']): string {
   switch (role) {
     case 'user':
-      return '\u7528\u6237';
+      return '用户';
     case 'assistant':
       return 'Codex';
+    case 'reasoning':
+      return 'Thinking';
     case 'system':
-      return '\u7cfb\u7edf';
+      return '系统';
     default:
       return role;
+  }
+}
+
+function labelForActivityKind(kind: ChatActivity['activityKind']): string {
+  switch (kind) {
+    case 'command_execution':
+      return '命令执行';
+    case 'tool_call':
+      return '工具调用';
+    case 'plan':
+      return '计划';
+    case 'approval':
+      return '审批';
+    default:
+      return kind;
   }
 }
 
