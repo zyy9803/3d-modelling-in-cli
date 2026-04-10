@@ -256,7 +256,19 @@ function normalizeCompletedItem(item: ThreadItem): SessionStreamEvent[] {
     ];
   }
 
-  return [{ type: 'message_completed', messageId: item.id }];
+  return [
+    ...(item.text
+      ? [
+          {
+            type: 'message_delta',
+            messageId: item.id,
+            delta: item.text,
+            replace: true,
+          } satisfies SessionStreamEvent,
+        ]
+      : []),
+    { type: 'message_completed', messageId: item.id },
+  ];
 }
 
 function buildUserInputEnvelope(

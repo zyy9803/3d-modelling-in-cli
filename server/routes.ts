@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type {
+  SessionImportModelRequest,
+  SessionImportModelResponse,
   SessionDecisionRequest,
   SessionInterruptRequest,
   SessionMessageRequest,
@@ -62,8 +64,50 @@ export function createRequestListener(session: CodexSessionController) {
       return;
     }
 
+    if (url.pathname === '/api/models/import' && request.method === 'POST') {
+      const payload = await readJsonBody<SessionImportModelRequest>(request);
+      writeJson(response, 201, await session.importModel(payload) as SessionImportModelResponse);
+      return;
+    }
+
+    if (request.method === 'GET' && url.pathname.startsWith('/api/models/')) {
+      const modelId = url.pathname.slice('/api/models/'.length);
+      try {
+        const file = await session.readModelFile(modelId);
+        if (!file) {
+          writeJson(response, 404, { error: 'Model not found' });
+          return;
+        }
+
+        writeCorsHeaders(response);
+        response.writeHead(200, {
+          'Content-Type': 'model/stl',
+          'Content-Length': String(file.length),
+        });
+        response.end(file);
+        return;
+      } catch (error) {
+        if (isMissingFileError(error)) {
+          writeJson(response, 404, { error: 'Model file not found' });
+          return;
+        }
+
+        writeJson(response, 500, { error: 'Failed to read model file' });
+        return;
+      }
+    }
+
     writeJson(response, 404, { error: 'Not found' });
   };
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    typeof (error as NodeJS.ErrnoException).code === 'string' &&
+    (error as NodeJS.ErrnoException).code === 'ENOENT'
+  );
 }
 
 function startEventStream(session: CodexSessionController, response: ServerResponse): void {

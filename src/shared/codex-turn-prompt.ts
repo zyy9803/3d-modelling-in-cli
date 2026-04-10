@@ -1,11 +1,14 @@
-import type { SessionMessageRequest, SelectionComponentPayload } from './codex-session-types.js';
+import type { EditJobContext, SessionMessageRequest, SelectionComponentPayload } from './codex-session-types.js';
 
 export function buildCodexTurnPrompt(request: SessionMessageRequest): string {
   const selection = request.selectionContext;
   const view = request.viewContext;
 
-  return [
-    'Phase 3A conversation only. Do not claim that any STL or mesh edit has been executed.',
+  const lines = [
+    'You are a senior 3D modeling expert specializing in STL mesh editing and triangle-based geometry workflows.',
+    'You can inspect meshes, reason about selection context, and generate new STL models when an edit job is provided.',
+    'Only use the edit job workspace when you decide to perform an actual mesh edit in this turn. For analysis, clarification, or discussion-only turns, do not create model artifacts.',
+    'Use the model and selection context as the primary source of truth for geometry-focused requests.',
     `activeModelId: ${request.activeModelId ?? 'null'}`,
     `triangleCount: ${selection.triangleIds.length}`,
     `componentCount: ${selection.components.length}`,
@@ -13,11 +16,27 @@ export function buildCodexTurnPrompt(request: SessionMessageRequest): string {
     `viewContext: ${formatViewContext(view)}`,
     `selectionContext: ${formatSelectionContext(selection)}`,
     `userInstruction: ${request.message.text}`,
-  ].join('\n');
+  ];
+
+  if (request.editJob) {
+    lines.splice(3, 0, ...formatEditJobContext(request.editJob));
+  }
+
+  return lines.join('\n');
 }
 
 function formatViewContext(view: SessionMessageRequest['viewContext']): string {
   return `{"cameraPosition":${formatTuple(view.cameraPosition)},"target":${formatTuple(view.target)},"up":${formatTuple(view.up)},"fov":${formatNumber(view.fov)},"viewDirection":${formatTuple(view.viewDirection)},"dominantOrientation":${JSON.stringify(view.dominantOrientation)},"viewportSize":${formatTuple(view.viewportSize)}}`;
+}
+
+function formatEditJobContext(editJob: EditJobContext): string[] {
+  return [
+    `editJob.jobId: ${editJob.jobId}`,
+    `editJob.workspacePath: ${editJob.workspacePath}`,
+    `editJob.contextPath: ${editJob.contextPath}`,
+    `editJob.baseModelPath: ${editJob.baseModelPath}`,
+    `editJob.outputModelPath: ${editJob.outputModelPath}`,
+  ];
 }
 
 function formatSelectionContext(selection: SessionMessageRequest['selectionContext']): string {

@@ -1,0 +1,73 @@
+{
+  "jobId": "job_003",
+  "baseModelId": "model_003",
+  "activeModelId": "model_003",
+  "baseModelPath": "C:\\Users\\Admin\\Projects\\3DModel\\artifacts\\models\\model_003_from_model_001.stl",
+  "outputModelPath": "C:\\Users\\Admin\\Projects\\3DModel\\artifacts\\models\\model_004_from_model_003.stl",
+  "selectionContext": {
+    "mode": "click",
+    "triangleIds": [
+      1032,
+      1033
+    ],
+    "components": [
+      {
+        "id": "sel_0",
+        "triangleIds": [
+          1032,
+          1033
+        ],
+        "centroid": [
+          0,
+          100,
+          0
+        ],
+        "bboxMin": [
+          -50,
+          100,
+          -50
+        ],
+        "bboxMax": [
+          50,
+          100,
+          50
+        ],
+        "avgNormal": [
+          0,
+          1,
+          0
+        ],
+        "area": 10000
+      }
+    ]
+  },
+  "viewContext": {
+    "cameraPosition": [
+      -142.06417,
+      376.505742,
+      -203.408693
+    ],
+    "target": [
+      0.541778,
+      -5.527398,
+      1.367678
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "fov": 50,
+    "viewDirection": [
+      0.31252,
+      -0.837222,
+      0.448766
+    ],
+    "dominantOrientation": "+Y",
+    "viewportSize": [
+      2143,
+      1023
+    ]
+  },
+  "userInstruction": "这个面四个边倒角，10mm"
+}

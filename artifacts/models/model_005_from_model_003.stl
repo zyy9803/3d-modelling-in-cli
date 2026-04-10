@@ -1,0 +1,86 @@
+solid model_005_from_model_003
+  facet normal 0 0 -1
+    outer loop
+      vertex -150 -50 0
+      vertex 150 50 0
+      vertex 150 -50 0
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex -150 -50 0
+      vertex -150 50 0
+      vertex 150 50 0
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -150 -50 25
+      vertex 150 -50 25
+      vertex 150 50 25
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -150 -50 25
+      vertex 150 50 25
+      vertex -150 50 25
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex -150 -50 0
+      vertex 150 -50 0
+      vertex 150 -50 25
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex -150 -50 0
+      vertex 150 -50 25
+      vertex -150 -50 25
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 150 -50 0
+      vertex 150 50 0
+      vertex 150 50 25
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 150 -50 0
+      vertex 150 50 25
+      vertex 150 -50 25
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 150 50 0
+      vertex -150 50 0
+      vertex -150 50 25
+    endloop
+  endfacet
+  facet normal 0 1 -0
+    outer loop
+      vertex 150 50 0
+      vertex -150 50 25
+      vertex 150 50 25
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex -150 50 0
+      vertex -150 -50 0
+      vertex -150 -50 25
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex -150 50 0
+      vertex -150 -50 25
+      vertex -150 50 25
+    endloop
+  endfacet
+endsolid model_005_from_model_003

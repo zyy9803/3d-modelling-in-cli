@@ -1,0 +1,73 @@
+{
+  "jobId": "job_002",
+  "baseModelId": "model_001",
+  "activeModelId": "model_001",
+  "baseModelPath": "C:\\Users\\Admin\\Projects\\3DModel\\artifacts\\models\\model_001_original.stl",
+  "outputModelPath": "C:\\Users\\Admin\\Projects\\3DModel\\artifacts\\models\\model_003_from_model_001.stl",
+  "selectionContext": {
+    "mode": "click",
+    "triangleIds": [
+      1033,
+      1034
+    ],
+    "components": [
+      {
+        "id": "sel_0",
+        "triangleIds": [
+          1033,
+          1034
+        ],
+        "centroid": [
+          38.888889,
+          55.555556,
+          2.777778
+        ],
+        "bboxMin": [
+          -50,
+          -100,
+          -25
+        ],
+        "bboxMax": [
+          50,
+          100,
+          25
+        ],
+        "avgNormal": [
+          0.894427,
+          0.447214,
+          0
+        ],
+        "area": 7500
+      }
+    ]
+  },
+  "viewContext": {
+    "cameraPosition": [
+      170.613998,
+      308.746378,
+      97.438251
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "fov": 50,
+    "viewDirection": [
+      -0.466208,
+      -0.843659,
+      -0.266253
+    ],
+    "dominantOrientation": "+Y",
+    "viewportSize": [
+      2143,
+      1023
+    ]
+  },
+  "userInstruction": "把这两个面之间的边变为 100mm"
+}

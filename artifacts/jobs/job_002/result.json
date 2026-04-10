@@ -1,0 +1,21 @@
+{
+  "jobId": "job_002",
+  "operation": "scale_z_symmetrically",
+  "inputModelPath": "C:\\Users\\Admin\\Projects\\3DModel\\artifacts\\models\\model_001_original.stl",
+  "outputModelPath": "C:\\Users\\Admin\\Projects\\3DModel\\artifacts\\models\\model_003_from_model_001.stl",
+  "triangleCount": 2064,
+  "selectedSharedEdge": [
+    [
+      50.0,
+      100.0,
+      -50.0
+    ],
+    [
+      50.0,
+      100.0,
+      50.0
+    ]
+  ],
+  "selectedSharedEdgeLengthMm": 100.0,
+  "scaleFactorZ": 2.0
+}

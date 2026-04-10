@@ -1,8 +1,9 @@
 import { createChatPanel } from '../chat/ChatPanel';
-import { createChatStore, type ChatContextSummary } from '../chat/chat-store';
+import { createChatStore, type ChatContextSummary, type ChatStore } from '../chat/chat-store';
 import { SessionClient } from '../chat/session-client';
 import { createFileDropzone, isStlFile } from '../ui/FileDropzone';
 import { StlViewport, type ViewportSelectionSummary } from '../viewer/StlViewport';
+import type { SessionStreamEvent } from '../shared/codex-session-types';
 
 const SESSION_ID = 'sess_main';
 
@@ -18,9 +19,34 @@ const EMPTY_CHAT_CONTEXT: ChatContextSummary = {
   orientation: '+X',
 };
 
+type SessionClientLike = Pick<
+  SessionClient,
+  | 'connect'
+  | 'getStatus'
+  | 'sendMessage'
+  | 'sendDecision'
+  | 'interrupt'
+  | 'importModel'
+  | 'switchModel'
+  | 'clearSession'
+  | 'fetchModelFile'
+>;
+
+type ViewportLike = Pick<
+  StlViewport,
+  'mount' | 'loadFile' | 'resetView' | 'clearSelection' | 'exportContext' | 'buildChatPayload'
+>;
+
+type ViewerAppOptions = {
+  sessionClient?: SessionClientLike;
+  chatStore?: ChatStore;
+  createViewport?: () => ViewportLike;
+};
+
 export class ViewerApp {
-  private readonly sessionClient = new SessionClient();
-  private readonly chatStore = createChatStore();
+  private readonly sessionClient: SessionClientLike;
+  private readonly chatStore: ChatStore;
+  private readonly createViewport: (() => ViewportLike) | null;
   private readonly chatPanel = createChatPanel({
     onSend: (text) => {
       void this.handleSendMessage(text);
@@ -36,10 +62,9 @@ export class ViewerApp {
     },
   });
 
-  private viewport: StlViewport | null = null;
+  private viewport: ViewportLike | null = null;
   private activeModelId: string | null = null;
   private activeModelLabel: string | null = null;
-  private modelSequence = 0;
   private readonly viewportPanel: HTMLElement;
   private readonly viewportHost: HTMLElement;
   private readonly fileInput: HTMLInputElement;
@@ -51,7 +76,10 @@ export class ViewerApp {
   private readonly selectionStatus: HTMLElement;
   private readonly chatSlot: HTMLElement;
 
-  public constructor(private readonly root: HTMLElement) {
+  public constructor(private readonly root: HTMLElement, options: ViewerAppOptions = {}) {
+    this.sessionClient = options.sessionClient ?? new SessionClient();
+    this.chatStore = options.chatStore ?? createChatStore();
+    this.createViewport = options.createViewport ?? null;
     this.render();
     this.viewportPanel = this.requireElement<HTMLElement>('[data-viewport-panel]');
     this.viewportHost = this.requireElement<HTMLElement>('[data-viewport-host]');
@@ -164,7 +192,7 @@ export class ViewerApp {
 
     this.sessionClient.connect({
       onEvent: (event) => {
-        this.chatStore.applyEvent(event);
+        this.handleSessionEvent(event);
       },
     });
 
@@ -180,10 +208,16 @@ export class ViewerApp {
           type: 'status_changed',
           status: status.sessionStatus,
         });
-        this.chatStore.setModelContext({
-          activeModelId: status.activeModelId,
-          modelLabel: status.modelLabel,
-        });
+        if (
+          this.activeModelId === null &&
+          this.activeModelLabel === null &&
+          (status.activeModelId !== null || status.modelLabel !== null)
+        ) {
+          this.applyModelContext(status.activeModelId, status.modelLabel);
+          if (status.activeModelId) {
+            void this.restoreModelFromStatus(status.activeModelId, status.modelLabel);
+          }
+        }
       })
       .catch((error: unknown) => {
         this.chatStore.applyEvent({
@@ -195,6 +229,12 @@ export class ViewerApp {
   }
 
   private mountViewport(): void {
+    if (this.createViewport) {
+      this.viewport = this.createViewport();
+      this.viewport.mount(this.viewportHost, this.orientationRoot);
+      return;
+    }
+
     if (typeof window === 'undefined' || typeof WebGLRenderingContext === 'undefined') {
       return;
     }
@@ -207,6 +247,58 @@ export class ViewerApp {
     });
 
     this.viewport.mount(this.viewportHost, this.orientationRoot);
+  }
+
+  private handleSessionEvent(event: SessionStreamEvent): void {
+    this.chatStore.applyEvent(event);
+
+    switch (event.type) {
+      case 'model_switched':
+        this.applyModelContext(event.activeModelId, event.modelLabel);
+        break;
+      case 'model_generated':
+        void this.loadGeneratedModel(event.newModelId, event.modelLabel);
+        break;
+      default:
+        break;
+    }
+  }
+
+  private async loadGeneratedModel(modelId: string, modelLabel: string): Promise<void> {
+    if (!this.viewport) {
+      this.showError('Generated model could not be loaded because the viewport is unavailable.');
+      return;
+    }
+
+    try {
+      const file = await this.sessionClient.fetchModelFile(modelId);
+      await this.viewport.loadFile(file);
+      this.applyModelContext(modelId, modelLabel);
+      this.markViewportLoaded(modelLabel);
+      this.syncChatContextSummary();
+      this.showError('');
+    } catch (error) {
+      console.error(error);
+      this.showError(`Failed to load generated model: ${modelLabel}`);
+      this.reportChatError(error, 'session');
+    }
+  }
+
+  private async restoreModelFromStatus(modelId: string, modelLabel: string | null): Promise<void> {
+    if (!this.viewport) {
+      return;
+    }
+
+    try {
+      const file = await this.sessionClient.fetchModelFile(modelId);
+      await this.viewport.loadFile(file);
+      this.markViewportLoaded(modelLabel ?? file.name);
+      this.syncChatContextSummary();
+      this.showError('');
+    } catch {
+      // Best effort only. Status restoration should not surface a hard error because
+      // imported local models may not exist in server-backed storage.
+    }
   }
 
   private async handleFile(file: File | null): Promise<void> {
@@ -230,22 +322,10 @@ export class ViewerApp {
 
     try {
       await this.viewport.loadFile(file);
-      this.viewportPanel.classList.add('is-loaded');
-      this.emptyState.classList.add('is-hidden');
-
-      this.activeModelId = this.createNextModelId();
-      this.activeModelLabel = file.name;
-      this.chatStore.setModelContext({
-        activeModelId: this.activeModelId,
-        modelLabel: this.activeModelLabel,
-      });
+      const importedModel = await this.sessionClient.importModel(SESSION_ID, file);
+      this.applyModelContext(importedModel.modelId, importedModel.modelLabel);
+      this.markViewportLoaded(file.name);
       this.syncChatContextSummary();
-
-      await this.sessionClient.switchModel({
-        sessionId: SESSION_ID,
-        activeModelId: this.activeModelId,
-        modelLabel: this.activeModelLabel,
-      });
     } catch (error) {
       console.error(error);
       this.showError('文件无法解析，请确认它是有效的 STL 文件');
@@ -255,7 +335,8 @@ export class ViewerApp {
 
   private async handleSendMessage(text: string): Promise<void> {
     const payload = this.viewport?.buildChatPayload();
-    if (!payload || !this.activeModelId) {
+    const activeModelId = this.activeModelId;
+    if (!payload || !activeModelId) {
       this.showError('请先加载 STL 文件后再发送给 Codex');
       return;
     }
@@ -272,7 +353,7 @@ export class ViewerApp {
     try {
       await this.sessionClient.sendMessage({
         sessionId: SESSION_ID,
-        activeModelId: this.activeModelId,
+        activeModelId,
         message: {
           role: 'user',
           text,
@@ -315,12 +396,24 @@ export class ViewerApp {
     }
   }
 
+  private applyModelContext(activeModelId: string | null, modelLabel: string | null): void {
+    this.activeModelId = activeModelId;
+    this.activeModelLabel = modelLabel;
+    this.chatStore.setModelContext({
+      activeModelId,
+      modelLabel,
+    });
+  }
+
+  private markViewportLoaded(modelLabel: string): void {
+    this.viewportPanel.classList.add('is-loaded');
+    this.emptyState.classList.add('is-hidden');
+    this.fileMeta.textContent = modelLabel;
+    this.fileMeta.classList.remove('is-hidden');
+  }
+
   private syncChatContextSummary(): void {
     const payload = this.viewport?.buildChatPayload();
-    this.chatStore.setModelContext({
-      activeModelId: this.activeModelId,
-      modelLabel: this.activeModelLabel,
-    });
     this.chatStore.setContextSummary(
       payload
         ? {
@@ -353,11 +446,6 @@ export class ViewerApp {
       scope,
       message: error instanceof Error ? error.message : 'Unknown error',
     });
-  }
-
-  private createNextModelId(): string {
-    this.modelSequence += 1;
-    return `model_${String(this.modelSequence).padStart(3, '0')}`;
   }
 
   private requireElement<T extends HTMLElement>(selector: string): T {

@@ -41,6 +41,14 @@ export type ViewContextPayload = {
   viewportSize: ViewportSizeTuple;
 };
 
+export type EditJobContext = {
+  jobId: string;
+  workspacePath: string;
+  contextPath: string;
+  baseModelPath: string;
+  outputModelPath: string;
+};
+
 export type SessionMessageRequest = {
   sessionId: string;
   activeModelId: string | null;
@@ -50,6 +58,7 @@ export type SessionMessageRequest = {
   };
   selectionContext: SelectionContextPayload;
   viewContext: ViewContextPayload;
+  editJob?: EditJobContext;
 };
 
 export type SessionInterruptRequest = {
@@ -60,6 +69,17 @@ export type SessionModelSwitchRequest = {
   sessionId: string;
   activeModelId: string | null;
   modelLabel: string | null;
+};
+
+export type SessionImportModelRequest = {
+  sessionId: string;
+  fileName: string;
+  fileContentBase64: string;
+};
+
+export type SessionImportModelResponse = {
+  modelId: string;
+  modelLabel: string;
 };
 
 export type DecisionOption = {
@@ -186,6 +206,24 @@ export type SessionStreamEvent =
   | {
       type: 'turn_interrupted';
       turnId: string;
+    }
+  | {
+      type: 'model_generation_started';
+      jobId: string;
+      baseModelId: string;
+    }
+  | {
+      type: 'model_generated';
+      jobId: string;
+      baseModelId: string;
+      newModelId: string;
+      modelLabel: string;
+    }
+  | {
+      type: 'model_generation_failed';
+      jobId: string;
+      baseModelId: string;
+      message: string;
     }
   | {
       type: 'model_switched';

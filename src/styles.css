@@ -332,6 +332,10 @@ input {
   overflow: hidden;
 }
 
+.chat-message--collapsible[open] {
+  max-height: 360px;
+}
+
 .chat-message--user {
   background: rgba(245, 198, 106, 0.12);
   border-color: rgba(245, 198, 106, 0.28);
@@ -364,6 +368,9 @@ input {
 .chat-message__summary {
   list-style: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  min-height: 64px;
   padding: 12px 14px;
 }
 
@@ -374,6 +381,7 @@ input {
 .chat-message__summary .chat-message__header {
   margin-bottom: 0;
   align-items: center;
+  width: 100%;
 }
 
 .chat-message__summary .chat-message__role::before {
@@ -391,6 +399,14 @@ input {
   padding: 0 14px 12px;
 }
 
+.chat-message__body-scroll {
+  max-height: 264px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+}
+
 .chat-message__title {
   color: #dfe7ee;
 }
@@ -404,12 +420,6 @@ input {
 .chat-message--reasoning {
   background: rgba(150, 197, 255, 0.06);
   border-color: rgba(150, 197, 255, 0.18);
-}
-
-.chat-message--reasoning .chat-message__text {
-  max-height: 144px;
-  overflow: auto;
-  padding-right: 6px;
 }
 
 .chat-message--activity {

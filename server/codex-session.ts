@@ -1,7 +1,13 @@
+import { access } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+
 import { buildCodexTurnPrompt } from '../src/shared/codex-turn-prompt.js';
 import type {
   ChatSessionStatus,
   CodexConnectionStatus,
+  EditJobContext,
+  SessionImportModelRequest,
+  SessionImportModelResponse,
   SessionDecisionRequest,
   SessionInterruptRequest,
   SessionMessageRequest,
@@ -9,6 +15,19 @@ import type {
   SessionStreamEvent,
 } from '../src/shared/codex-session-types.js';
 
+import {
+  createEditJobFactory,
+  type EditJobFactory,
+  type EditJobRecord,
+} from './edit-job.js';
+import {
+  createModelRegistry,
+  type ModelRegistry,
+} from './model-registry.js';
+import {
+  createModelStorage,
+  type ModelStorage,
+} from './model-storage.js';
 import {
   buildDecisionActivityEvents,
   buildDecisionEnvelope,
@@ -39,6 +58,11 @@ export type CodexSessionControllerOptions = {
   rootDir: string;
   appServerPort: number;
   sessionId?: string;
+  modelsRoot?: string;
+  jobsRoot?: string;
+  modelRegistry?: ModelRegistry;
+  editJobFactory?: EditJobFactory;
+  modelStorage?: ModelStorage;
 };
 
 export class CodexSessionController {
@@ -46,6 +70,9 @@ export class CodexSessionController {
   private readonly sessionId: string;
   private readonly processManager: CodexProcessManager;
   private readonly gateway: CodexGateway;
+  private readonly modelRegistry: ModelRegistry;
+  private readonly editJobFactory: EditJobFactory;
+  private readonly modelStorage: ModelStorage;
   private connectionStatus: CodexConnectionStatus = 'starting';
   private connectionMessage = 'Codex starting';
   private sessionStatus: ChatSessionStatus = 'idle';
@@ -56,9 +83,16 @@ export class CodexSessionController {
   private interruptedTurnId: string | null = null;
   private pendingDecision: PendingDecisionEnvelope | null = null;
   private resolvingDecisionId: string | null = null;
+  private activeEditJob: EditJobRecord | null = null;
 
   public constructor(private readonly options: CodexSessionControllerOptions) {
     this.sessionId = options.sessionId ?? 'sess_main';
+    const modelsRoot = resolve(options.modelsRoot ?? join(options.rootDir, 'artifacts', 'models'));
+    const jobsRoot = resolve(options.jobsRoot ?? join(options.rootDir, 'artifacts', 'jobs'));
+    this.modelRegistry = options.modelRegistry ?? createModelRegistry(modelsRoot);
+    this.editJobFactory =
+      options.editJobFactory ?? createEditJobFactory({ jobsRoot, registry: this.modelRegistry });
+    this.modelStorage = options.modelStorage ?? createModelStorage(modelsRoot);
     this.processManager = new CodexProcessManager({
       listenPort: options.appServerPort,
       cwd: options.rootDir,
@@ -74,7 +108,7 @@ export class CodexSessionController {
         });
       },
       onNotification: (notification) => {
-        this.handleNotification(notification);
+        void this.handleNotification(notification);
       },
       onServerRequest: (request) => {
         this.handleServerRequest(request);
@@ -139,15 +173,61 @@ export class CodexSessionController {
     };
   }
 
+  public async readModelFile(modelId: string): Promise<Buffer | null> {
+    const model = this.modelRegistry.getModel(modelId);
+    if (!model) {
+      return null;
+    }
+
+    return this.modelStorage.readModelFile(model.storagePath);
+  }
+
+  public async importModel(request: SessionImportModelRequest): Promise<SessionImportModelResponse> {
+    this.assertSessionId(request.sessionId);
+
+    const fileBuffer = Buffer.from(request.fileContentBase64, 'base64');
+    const model = this.modelRegistry.registerImportedModel({
+      sourceFileName: request.fileName,
+    });
+    await this.modelStorage.writeModelFile(model.storagePath, fileBuffer);
+
+    this.activeModelId = model.modelId;
+    this.modelLabel = model.sourceFileName;
+    this.broadcast({
+      type: 'model_switched',
+      activeModelId: model.modelId,
+      modelLabel: model.sourceFileName,
+    });
+
+    return {
+      modelId: model.modelId,
+      modelLabel: model.sourceFileName,
+    };
+  }
+
   public async submitMessage(request: SessionMessageRequest): Promise<{ accepted: true }> {
     this.assertSessionId(request.sessionId);
     this.ensureCanSendMessage();
 
-    this.activeModelId = request.activeModelId;
+    const normalizedRequest: SessionMessageRequest = {
+      ...request,
+      activeModelId: request.activeModelId ?? this.activeModelId,
+    };
+
+    this.activeModelId = normalizedRequest.activeModelId;
+    this.ensureKnownModel(normalizedRequest.activeModelId, this.modelLabel);
     await this.gateway.whenReady();
     await this.ensureThread();
 
-    const prompt = buildCodexTurnPrompt(request);
+    const editJob = await this.prepareEditJob(normalizedRequest);
+    const prompt = buildCodexTurnPrompt(
+      editJob
+        ? {
+            ...normalizedRequest,
+            editJob: this.toEditJobContext(editJob),
+          }
+        : normalizedRequest,
+    );
     const input = [
       {
         type: 'text' as const,
@@ -165,12 +245,21 @@ export class CodexSessionController {
         });
       } catch {
         this.activeTurnId = null;
-        const response = await this.gateway.startTurn({
-          threadId: this.requireThreadId(),
-          input,
-          cwd: this.options.rootDir,
-        });
-        this.activeTurnId = response.turn.id;
+        try {
+          const response = await this.gateway.startTurn({
+            threadId: this.requireThreadId(),
+            input,
+            cwd: this.options.rootDir,
+          });
+          this.activeTurnId = response.turn.id;
+        } catch (error) {
+          if (editJob) {
+            this.activeEditJob = null;
+            await this.failActiveEditJob(editJob, this.describeError(error));
+          }
+
+          throw error;
+        }
       }
     } else {
       this.sessionStatus = 'sending';
@@ -179,18 +268,27 @@ export class CodexSessionController {
         status: 'sending',
       });
 
-      const response = await this.gateway.startTurn({
-        threadId: this.requireThreadId(),
-        input,
-        cwd: this.options.rootDir,
-      });
+      try {
+        const response = await this.gateway.startTurn({
+          threadId: this.requireThreadId(),
+          input,
+          cwd: this.options.rootDir,
+        });
 
-      this.activeTurnId = response.turn.id;
-      this.sessionStatus = 'streaming';
-      this.broadcast({
-        type: 'status_changed',
-        status: 'streaming',
-      });
+        this.activeTurnId = response.turn.id;
+        this.sessionStatus = 'streaming';
+        this.broadcast({
+          type: 'status_changed',
+          status: 'streaming',
+        });
+      } catch (error) {
+        if (editJob) {
+          this.activeEditJob = null;
+          await this.failActiveEditJob(editJob, this.describeError(error));
+        }
+
+        throw error;
+      }
     }
 
     return {
@@ -232,6 +330,7 @@ export class CodexSessionController {
     this.assertSessionId(request.sessionId);
     this.activeModelId = request.activeModelId;
     this.modelLabel = request.modelLabel;
+    this.ensureKnownModel(request.activeModelId, request.modelLabel);
 
     this.broadcast({
       type: 'model_switched',
@@ -287,6 +386,7 @@ export class CodexSessionController {
     this.interruptedTurnId = null;
     this.pendingDecision = null;
     this.resolvingDecisionId = null;
+    this.activeEditJob = null;
     this.sessionStatus = 'idle';
 
     this.broadcast({
@@ -314,9 +414,10 @@ export class CodexSessionController {
       sandbox: 'danger-full-access',
       config: null,
       serviceName: 'stl-web-viewer',
-      baseInstructions: 'Phase 3A only. Do not claim that any STL or mesh edit has already been executed.',
+      baseInstructions:
+        'You are a senior 3D modeling expert specializing in STL mesh editing and triangle-based geometry workflows. You may modify mesh geometry and generate new STL models, but you must never overwrite the input model.',
       developerInstructions:
-        'Use the user prompt as the source of truth for model context and selection context. If a future mesh edit is requested, discuss it but do not claim it has been applied.',
+        'Use the user prompt as the source of truth for model context and selection context. If an edit job is provided, treat its context as authoritative for file paths. Only create edit.py, result.json, or write the output STL when you decide to perform an actual mesh edit for this turn. For analysis, clarification, and discussion turns, do not generate model artifacts. Do not overwrite the base model.',
       ephemeral: true,
       experimentalRawEvents: false,
       persistExtendedHistory: true,
@@ -329,7 +430,9 @@ export class CodexSessionController {
     });
   }
 
-  private handleNotification(notification: ServerNotification): void {
+  private async handleNotification(notification: ServerNotification): Promise<void> {
+    let completedTurn: { id: string; status?: string | null } | null = null;
+
     switch (notification.method) {
       case 'thread/started':
         this.threadId = notification.params.thread.id;
@@ -338,6 +441,7 @@ export class CodexSessionController {
         this.activeTurnId = notification.params.turn.id;
         break;
       case 'turn/completed':
+        completedTurn = notification.params.turn;
         if (
           notification.params.turn.status === 'interrupted' &&
           this.interruptedTurnId !== notification.params.turn.id
@@ -392,6 +496,10 @@ export class CodexSessionController {
     for (const event of normalizeServerNotification(notification)) {
       this.applyStreamEventState(event);
       this.broadcast(event);
+    }
+
+    if (completedTurn) {
+      await this.finalizeActiveEditJob(completedTurn);
     }
   }
 
@@ -478,6 +586,122 @@ export class CodexSessionController {
     }
   }
 
+  private broadcastModelGenerated(job: EditJobRecord): void {
+    this.broadcast({
+      type: 'model_generated',
+      jobId: job.jobId,
+      baseModelId: job.baseModel.modelId,
+      newModelId: job.outputModel.modelId,
+      modelLabel: job.outputModel.sourceFileName,
+    });
+  }
+
+  private broadcastModelGenerationFailed(job: EditJobRecord, message: string): void {
+    this.broadcast({
+      type: 'model_generation_failed',
+      jobId: job.jobId,
+      baseModelId: job.baseModel.modelId,
+      message,
+    });
+  }
+
+  private async prepareEditJob(request: SessionMessageRequest): Promise<EditJobRecord | null> {
+    if (this.activeTurnId && this.activeEditJob) {
+      return this.activeEditJob;
+    }
+
+    if (!request.activeModelId) {
+      return this.activeEditJob;
+    }
+
+    const editJob = await this.editJobFactory.createJob({
+      activeModelId: request.activeModelId,
+      selectionContext: request.selectionContext,
+      viewContext: request.viewContext,
+      userInstruction: request.message.text,
+    });
+
+    this.activeEditJob = editJob;
+    return editJob;
+  }
+
+  private async finalizeActiveEditJob(turn: { id: string; status?: string | null }): Promise<void> {
+    const editJob = this.activeEditJob;
+    if (!editJob) {
+      return;
+    }
+
+    this.activeEditJob = null;
+
+    if (turn.status !== 'completed') {
+      await this.failActiveEditJob(
+        editJob,
+        `Codex turn ended with status ${turn.status ?? 'unknown'} before generating a new STL.`,
+      );
+      return;
+    }
+
+    if (!(await this.didCodexAttemptModelGeneration(editJob))) {
+      return;
+    }
+
+    const validation = await this.modelStorage.validateGeneratedModel(editJob.outputModel.storagePath);
+    if (!validation.ok) {
+      await this.failActiveEditJob(editJob, validation.message ?? 'Generated STL validation failed.');
+      return;
+    }
+
+    this.activeModelId = editJob.outputModel.modelId;
+    this.modelLabel = editJob.outputModel.sourceFileName;
+    this.broadcastModelGenerated(editJob);
+  }
+
+  private async failActiveEditJob(editJob: EditJobRecord, message: string): Promise<void> {
+    this.broadcastModelGenerationFailed(editJob, message);
+  }
+
+  private async didCodexAttemptModelGeneration(editJob: EditJobRecord): Promise<boolean> {
+    return (
+      (await pathExists(editJob.scriptPath)) ||
+      (await pathExists(editJob.resultPath)) ||
+      (await pathExists(editJob.outputModel.storagePath))
+    );
+  }
+
+  private ensureKnownModel(activeModelId: string | null, modelLabel: string | null): void {
+    if (!activeModelId || this.modelRegistry.getModel(activeModelId)) {
+      return;
+    }
+
+    const desiredSequence = parseModelSequence(activeModelId);
+    if (desiredSequence == null) {
+      throw new Error(`Unsupported active model id: ${activeModelId}`);
+    }
+
+    const sourceFileName = modelLabel ?? `${activeModelId}.stl`;
+    while (this.modelRegistry.listModels().length < desiredSequence) {
+      this.modelRegistry.registerImportedModel({ sourceFileName });
+    }
+
+    if (!this.modelRegistry.getModel(activeModelId)) {
+      throw new Error(`Failed to register active model: ${activeModelId}`);
+    }
+  }
+
+  private toEditJobContext(editJob: EditJobRecord): EditJobContext {
+    return {
+      jobId: editJob.jobId,
+      workspacePath: editJob.workspacePath,
+      contextPath: editJob.contextPath,
+      baseModelPath: editJob.baseModel.storagePath,
+      outputModelPath: editJob.outputModel.storagePath,
+    };
+  }
+
+  private describeError(error: unknown): string {
+    return error instanceof Error ? error.message : 'Unknown error';
+  }
+
   private requireThreadId(): string {
     if (!this.threadId) {
       throw new Error('Codex thread has not been created yet.');
@@ -496,5 +720,24 @@ export class CodexSessionController {
     if (this.pendingDecision || this.resolvingDecisionId) {
       throw new Error('Cannot send a new message while a decision is pending.');
     }
+  }
+}
+
+function parseModelSequence(modelId: string): number | null {
+  const match = /^model_(\d+)$/u.exec(modelId);
+  if (!match) {
+    return null;
+  }
+
+  const sequence = Number(match[1]);
+  return Number.isInteger(sequence) ? sequence : null;
+}
+
+async function pathExists(targetPath: string): Promise<boolean> {
+  try {
+    await access(targetPath);
+    return true;
+  } catch {
+    return false;
   }
 }

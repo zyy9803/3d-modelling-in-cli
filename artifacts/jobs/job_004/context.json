@@ -1,0 +1,73 @@
+{
+  "jobId": "job_004",
+  "baseModelId": "model_004",
+  "activeModelId": "model_004",
+  "baseModelPath": "C:\\Users\\Admin\\Projects\\3DModel\\artifacts\\models\\model_004_from_model_003.stl",
+  "outputModelPath": "C:\\Users\\Admin\\Projects\\3DModel\\artifacts\\models\\model_005_from_model_004.stl",
+  "selectionContext": {
+    "mode": "click",
+    "triangleIds": [
+      1880,
+      1944
+    ],
+    "components": [
+      {
+        "id": "sel_0",
+        "triangleIds": [
+          1880,
+          1944
+        ],
+        "centroid": [
+          45.936085,
+          18.033132,
+          27.826109
+        ],
+        "bboxMin": [
+          9.329928,
+          -100,
+          -45
+        ],
+        "bboxMax": [
+          50,
+          90,
+          50
+        ],
+        "avgNormal": [
+          0.9193,
+          0,
+          0.393558
+        ],
+        "area": 12888.656802
+      }
+    ]
+  },
+  "viewContext": {
+    "cameraPosition": [
+      217.345369,
+      187.727593,
+      235.915603
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "fov": 50,
+    "viewDirection": [
+      -0.584784,
+      -0.505095,
+      -0.634749
+    ],
+    "dominantOrientation": "+Z",
+    "viewportSize": [
+      2143,
+      1023
+    ]
+  },
+  "userInstruction": "给这两个面夹的边倒角，10mm"
+}

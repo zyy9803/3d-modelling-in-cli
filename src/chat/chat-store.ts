@@ -282,6 +282,14 @@ export function createChatStore(initialState: Partial<ChatStoreState> = {}): Cha
             `\u5f53\u524d\u6a21\u578b\u5df2\u5207\u6362\u4e3a ${event.modelLabel ?? event.activeModelId ?? '\u672a\u547d\u540d\u6a21\u578b'}`,
           );
           break;
+        case 'model_generation_started':
+          break;
+        case 'model_generated':
+          pushSystemMessage(`New model generated: ${event.modelLabel}`);
+          break;
+        case 'model_generation_failed':
+          pushSystemMessage(`Model generation failed: ${event.message}`);
+          break;
         case 'session_cleared':
           state.sessionId = null;
           state.sessionStatus = 'idle';

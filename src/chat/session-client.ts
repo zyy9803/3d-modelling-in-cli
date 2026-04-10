@@ -1,6 +1,7 @@
 import type {
   ChatSessionStatus,
   CodexConnectionStatus,
+  SessionImportModelResponse,
   SessionDecisionRequest,
   SessionInterruptRequest,
   SessionMessageRequest,
@@ -81,6 +82,40 @@ export class SessionClient {
 
   async sendMessage(payload: SessionMessageRequest): Promise<void> {
     await this.postJson('/api/session/message', payload);
+  }
+
+  async fetchModelFile(modelId: string): Promise<File> {
+    const response = await fetch(this.resolveUrl(`/api/models/${encodeURIComponent(modelId)}`));
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const contentType = response.headers.get('content-type') ?? 'model/stl';
+    return new File([blob], `${modelId}.stl`, { type: contentType });
+  }
+
+  async importModel(sessionId: string, file: File): Promise<SessionImportModelResponse> {
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (const byte of bytes) {
+      binary += String.fromCharCode(byte);
+    }
+
+    const response = await fetch(this.resolveUrl('/api/models/import'), {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sessionId,
+        fileName: file.name,
+        fileContentBase64: btoa(binary),
+      }),
+    });
+
+    return await this.parseJsonResponse<SessionImportModelResponse>(response);
   }
 
   async sendDecision(payload: SessionDecisionRequest): Promise<void> {

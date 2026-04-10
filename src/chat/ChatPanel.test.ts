@@ -48,7 +48,7 @@ describe('createChatPanel', () => {
     expect(panel.element.textContent).not.toContain('Thinking');
   });
 
-  it('renders activity cards so users can see agent progress', () => {
+  it('renders plan activity cards so users can see agent progress', () => {
     const panel = createChatPanel(noopHandlers);
 
     panel.render({
@@ -57,10 +57,10 @@ describe('createChatPanel', () => {
         {
           kind: 'activity',
           id: 'activity-1',
-          activityKind: 'tool_call',
-          title: '调用工具',
-          detail: 'ReadFile: src/chat/chat-store.ts',
-          text: '读取当前 store 实现以决定时间线结构。',
+          activityKind: 'plan',
+          title: 'Plan Update',
+          detail: 'Plan step 1',
+          text: 'Generate a revised mesh-edit approach.',
           status: 'completed',
         },
       ],
@@ -69,9 +69,10 @@ describe('createChatPanel', () => {
     const details = panel.element.querySelector<HTMLElement>('[data-collapsible-card="true"]');
     expect(details).not.toBeNull();
     expect(details?.hasAttribute('open')).toBe(false);
-    expect(details?.querySelector('summary')?.textContent).toContain('调用工具');
-    expect(details?.textContent).toContain('ReadFile: src/chat/chat-store.ts');
-    expect(details?.textContent).toContain('读取当前 store 实现以决定时间线结构。');
+    expect(details?.querySelector('summary')?.textContent).toContain('Plan Update');
+    expect(details?.querySelector('.chat-message__body-scroll')).not.toBeNull();
+    expect(details?.textContent).toContain('Plan step 1');
+    expect(details?.textContent).toContain('Generate a revised mesh-edit approach.');
   });
 
   it('renders thinking as a collapsed card with expandable content', () => {
@@ -85,7 +86,7 @@ describe('createChatPanel', () => {
           id: 'reasoning-2',
           role: 'reasoning',
           title: 'Thinking',
-          text: '先检查当前事件流，再决定前端如何收口。',
+          text: 'Inspect the current selection before deciding the next edit step.',
           status: 'completed',
         },
       ],
@@ -95,6 +96,94 @@ describe('createChatPanel', () => {
     expect(details).not.toBeNull();
     expect(details?.hasAttribute('open')).toBe(false);
     expect(details?.querySelector('summary')?.textContent).toContain('Thinking');
-    expect(details?.textContent).toContain('先检查当前事件流，再决定前端如何收口。');
+    expect(details?.querySelector('.chat-message__body-scroll')).not.toBeNull();
+    expect(details?.textContent).toContain('Inspect the current selection before deciding the next edit step.');
+  });
+
+  it('preserves collapsible card open state across re-renders', () => {
+    const panel = createChatPanel(noopHandlers);
+    const initialState = {
+      ...createBaseState(),
+      messages: [
+        {
+          kind: 'message' as const,
+          id: 'reasoning-3',
+          role: 'reasoning' as const,
+          title: 'Thinking',
+          text: 'first chunk',
+          status: 'streaming' as const,
+        },
+      ],
+    };
+
+    panel.render(initialState);
+
+    const firstDetails = panel.element.querySelector<HTMLDetailsElement>('[data-collapsible-card="true"]');
+    expect(firstDetails).not.toBeNull();
+    firstDetails!.open = true;
+    firstDetails!.dispatchEvent(new Event('toggle'));
+
+    panel.render({
+      ...initialState,
+      messages: [
+        {
+          kind: 'message',
+          id: 'reasoning-3',
+          role: 'reasoning',
+          title: 'Thinking',
+          text: 'first chunk\nsecond chunk',
+          status: 'streaming',
+        },
+        {
+          kind: 'message',
+          id: 'assistant-1',
+          role: 'assistant',
+          text: 'follow-up',
+          status: 'streaming',
+        },
+      ],
+    });
+
+    const rerenderedDetails = panel.element.querySelector<HTMLDetailsElement>('[data-collapsible-card="true"]');
+    expect(rerenderedDetails?.open).toBe(true);
+  });
+
+  it('does not render command and tool activity cards in the main timeline', () => {
+    const panel = createChatPanel(noopHandlers);
+
+    panel.render({
+      ...createBaseState(),
+      messages: [
+        {
+          kind: 'activity',
+          id: 'command-1',
+          activityKind: 'command_execution',
+          title: 'Run command',
+          detail: 'python edit.py',
+          text: 'running',
+          status: 'streaming',
+        },
+        {
+          kind: 'activity',
+          id: 'tool-1',
+          activityKind: 'tool_call',
+          title: 'Read file',
+          detail: 'context.json',
+          text: 'reading',
+          status: 'completed',
+        },
+        {
+          kind: 'message',
+          id: 'assistant-2',
+          role: 'assistant',
+          text: 'final reply',
+          status: 'completed',
+        },
+      ],
+    });
+
+    expect(panel.element.textContent).toContain('final reply');
+    expect(panel.element.textContent).not.toContain('Run command');
+    expect(panel.element.textContent).not.toContain('Read file');
   });
 });

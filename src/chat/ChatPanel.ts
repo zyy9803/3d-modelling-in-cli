@@ -32,6 +32,7 @@ type QuestionSelectionState = {
 };
 
 export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
+  const openCards = new Set<string>();
   const root = document.createElement('aside');
   root.className = 'chat-panel';
   root.dataset.chatPanel = 'true';
@@ -137,6 +138,7 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
     componentCount.textContent = `连通块：${state.contextSummary.componentCount}`;
     orientation.textContent = `方向：${state.contextSummary.orientation}`;
     messages.innerHTML = renderMessageList(state.messages);
+    bindCollapsibleCards(messages, openCards);
     decisionHost.innerHTML = state.pendingDecision ? renderDecisionCardMarkup(state.pendingDecision) : '';
     bindDecisionCard(decisionHost, handlers);
     root.dataset.sessionStatus = state.sessionStatus;
@@ -158,6 +160,28 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
   };
 }
 
+function bindCollapsibleCards(host: HTMLElement, openCards: Set<string>): void {
+  host.querySelectorAll<HTMLDetailsElement>('[data-collapsible-card="true"]').forEach((details) => {
+    const messageId = details.dataset.messageId;
+    if (!messageId) {
+      return;
+    }
+
+    if (openCards.has(messageId)) {
+      details.open = true;
+    }
+
+    details.addEventListener('toggle', () => {
+      if (details.open) {
+        openCards.add(messageId);
+        return;
+      }
+
+      openCards.delete(messageId);
+    });
+  });
+}
+
 function renderConnectionStatus(
   statusLight: HTMLElement,
   connectionText: HTMLElement,
@@ -171,6 +195,13 @@ function renderConnectionStatus(
 
 function renderMessageList(messages: ChatTimelineEntry[]): string {
   const visibleMessages = messages.filter((message) => {
+    if (
+      message.kind === 'activity' &&
+      (message.activityKind === 'command_execution' || message.activityKind === 'tool_call')
+    ) {
+      return false;
+    }
+
     if (message.kind !== 'message' || message.role !== 'reasoning') {
       return true;
     }
@@ -273,7 +304,9 @@ function renderCollapsibleCard(options: {
         </div>
       </summary>
       <div class="chat-message__body">
-        ${options.body}
+        <div class="chat-message__body-scroll">
+          ${options.body}
+        </div>
       </div>
     </details>
   `;

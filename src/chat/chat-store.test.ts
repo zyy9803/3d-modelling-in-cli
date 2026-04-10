@@ -42,4 +42,49 @@ describe('createChatStore', () => {
       },
     ]);
   });
+
+  it('keeps the conversation intact while tracking model generation events', () => {
+    const store = createChatStore({
+      activeModelId: 'model_001',
+      modelLabel: 'part-original.stl',
+      messages: [
+        {
+          kind: 'message',
+          id: 'user-1',
+          role: 'user',
+          text: 'keep this conversation',
+          status: 'completed',
+        },
+      ],
+    });
+
+    store.applyEvent({
+      type: 'model_generation_started',
+      jobId: 'job_001',
+      baseModelId: 'model_001',
+    });
+    store.applyEvent({
+      type: 'model_generated',
+      jobId: 'job_001',
+      baseModelId: 'model_001',
+      newModelId: 'model_002',
+      modelLabel: 'part-edited.stl',
+    });
+    store.applyEvent({
+      type: 'model_generation_failed',
+      jobId: 'job_002',
+      baseModelId: 'model_002',
+      message: 'generation failed',
+    });
+
+    const state = store.getState();
+
+    expect(state.activeModelId).toBe('model_001');
+    expect(state.modelLabel).toBe('part-original.stl');
+    expect(state.messages.map((message) => message.text)).toEqual([
+      'keep this conversation',
+      'New model generated: part-edited.stl',
+      'Model generation failed: generation failed',
+    ]);
+  });
 });

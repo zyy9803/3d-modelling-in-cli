@@ -1,0 +1,86 @@
+solid model_002_from_model_001
+  facet normal 0 0 -1
+    outer loop
+      vertex -100 -100 0
+      vertex 100 100 0
+      vertex 100 -100 0
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex -100 -100 0
+      vertex -100 100 0
+      vertex 100 100 0
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -100 -100 25
+      vertex 100 -100 25
+      vertex 100 100 25
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -100 -100 25
+      vertex 100 100 25
+      vertex -100 100 25
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex -100 -100 0
+      vertex 100 -100 0
+      vertex 100 -100 25
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex -100 -100 0
+      vertex 100 -100 25
+      vertex -100 -100 25
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 100 -100 0
+      vertex 100 100 0
+      vertex 100 100 25
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 100 -100 0
+      vertex 100 100 25
+      vertex 100 -100 25
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 100 100 0
+      vertex -100 100 0
+      vertex -100 100 25
+    endloop
+  endfacet
+  facet normal 0 1 -0
+    outer loop
+      vertex 100 100 0
+      vertex -100 100 25
+      vertex 100 100 25
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex -100 100 0
+      vertex -100 -100 0
+      vertex -100 -100 25
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex -100 100 0
+      vertex -100 -100 25
+      vertex -100 100 25
+    endloop
+  endfacet
+endsolid model_002_from_model_001
