@@ -9,6 +9,7 @@ type FakeSessionClient = {
   fetchModelFileCalls: string[];
   importModelCalls: Array<{ sessionId: string; file: File }>;
   switchModelCalls: Array<{ sessionId: string; activeModelId: string | null; modelLabel: string | null }>;
+  generateModelCalls: Array<{ sessionId: string }>;
   connect: (options: { onEvent: (event: SessionStreamEvent) => void }) => () => void;
   getStatus: () => Promise<{
     connectionStatus: 'starting' | 'connected' | 'disconnected' | 'failed';
@@ -16,8 +17,16 @@ type FakeSessionClient = {
     sessionStatus: 'idle' | 'sending' | 'streaming' | 'waiting_decision' | 'resuming' | 'completed' | 'failed';
     activeModelId: string | null;
     modelLabel: string | null;
+    draft: {
+      status: 'empty' | 'ready' | 'running' | 'executed' | 'failed';
+      jobId: string | null;
+      baseModelId: string | null;
+      scriptPath: string | null;
+      message: string | null;
+    };
   }>;
   sendMessage: () => Promise<void>;
+  generateModel: (request: { sessionId: string }) => Promise<void>;
   sendDecision: () => Promise<void>;
   interrupt: () => Promise<void>;
   importModel: (sessionId: string, file: File) => Promise<{ modelId: string; modelLabel: string }>;
@@ -218,6 +227,13 @@ describe('ViewerApp', () => {
         sessionStatus: 'idle',
         activeModelId: 'model_007',
         modelLabel: 'restored.stl',
+        draft: {
+          status: 'empty',
+          jobId: null,
+          baseModelId: null,
+          scriptPath: null,
+          message: null,
+        },
       },
     });
     const viewport = createFakeViewport();
@@ -264,6 +280,13 @@ describe('ViewerApp', () => {
         sessionStatus: 'idle',
         activeModelId: 'model_002',
         modelLabel: 'generated.stl',
+        draft: {
+          status: 'empty',
+          jobId: null,
+          baseModelId: null,
+          scriptPath: null,
+          message: null,
+        },
       },
     });
     const viewport = createFakeViewport();
@@ -280,6 +303,42 @@ describe('ViewerApp', () => {
     expect(viewport.loadedFiles).toHaveLength(1);
     expect(root.textContent).toContain('generated.stl');
   });
+
+  it('calls the explicit generate endpoint when the draft is ready and the button is clicked', async () => {
+    const sessionClient = createFakeSessionClient({
+      status: {
+        connectionStatus: 'connected',
+        connectionMessage: 'connected',
+        sessionStatus: 'completed',
+        activeModelId: 'model_001',
+        modelLabel: 'part.stl',
+        draft: {
+          status: 'ready',
+          jobId: 'job_001',
+          baseModelId: 'model_001',
+          scriptPath: '/tmp/job_001/edit.py',
+          message: null,
+        },
+      },
+    });
+    const root = document.createElement('div');
+
+    new ViewerApp(root, {
+      sessionClient,
+      createViewport: () => createFakeViewport(),
+    });
+
+    await flushMicrotasks();
+
+    const button = root.querySelector<HTMLButtonElement>('[data-generate-model="true"]');
+    expect(button?.disabled).toBe(false);
+
+    button?.click();
+
+    await flushMicrotasks();
+
+    expect(sessionClient.generateModelCalls).toEqual([{ sessionId: 'sess_main' }]);
+  });
 });
 
 function createFakeSessionClient(
@@ -292,6 +351,7 @@ function createFakeSessionClient(
     fetchModelFileCalls: [] as string[],
     importModelCalls: [] as Array<{ sessionId: string; file: File }>,
     switchModelCalls: [] as Array<{ sessionId: string; activeModelId: string | null; modelLabel: string | null }>,
+    generateModelCalls: [] as Array<{ sessionId: string }>,
   };
 
   return {
@@ -310,6 +370,9 @@ function createFakeSessionClient(
     get switchModelCalls() {
       return state.switchModelCalls;
     },
+    get generateModelCalls() {
+      return state.generateModelCalls;
+    },
     connect(options) {
       state.onEvent = options.onEvent;
       return () => {
@@ -323,9 +386,19 @@ function createFakeSessionClient(
         sessionStatus: 'idle',
         activeModelId: null,
         modelLabel: null,
+        draft: {
+          status: 'empty',
+          jobId: null,
+          baseModelId: null,
+          scriptPath: null,
+          message: null,
+        },
       };
     },
     async sendMessage() {},
+    async generateModel(request) {
+      state.generateModelCalls.push(request);
+    },
     async sendDecision() {},
     async interrupt() {},
     async importModel(sessionId: string, file: File) {

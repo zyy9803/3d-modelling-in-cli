@@ -1,23 +1,29 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
 import type { SelectionContextPayload, ViewContextPayload } from '../src/shared/codex-session-types.js';
 import type { ModelRecord, ModelRegistry } from './model-registry.js';
 
-export type EditJobInput = {
+export type DraftJobInput = {
   activeModelId: string;
   selectionContext: SelectionContextPayload;
   viewContext: ViewContextPayload;
   userInstruction: string;
 };
 
-export type EditJobRecord = {
+export type DraftJobRecord = {
   jobId: string;
   workspacePath: string;
   contextPath: string;
   scriptPath: string;
   resultPath: string;
   baseModel: ModelRecord;
+  selectionContext: SelectionContextPayload;
+  viewContext: ViewContextPayload;
+  userInstruction: string;
+};
+
+export type ExecutionJobRecord = DraftJobRecord & {
   outputModel: ModelRecord;
 };
 
@@ -27,7 +33,8 @@ export type EditJobFactoryOptions = {
 };
 
 export type EditJobFactory = {
-  createJob(input: EditJobInput): Promise<EditJobRecord>;
+  createDraft(input: DraftJobInput): Promise<DraftJobRecord>;
+  prepareExecution(draftJob: DraftJobRecord): Promise<ExecutionJobRecord>;
 };
 
 export function createEditJobFactory(options: EditJobFactoryOptions): EditJobFactory {
@@ -35,7 +42,7 @@ export function createEditJobFactory(options: EditJobFactoryOptions): EditJobFac
   const jobsRoot = resolve(options.jobsRoot);
 
   return {
-    async createJob(input: EditJobInput): Promise<EditJobRecord> {
+    async createDraft(input: DraftJobInput): Promise<DraftJobRecord> {
       nextSequence += 1;
       const jobId = `job_${String(nextSequence).padStart(3, '0')}`;
       const baseModel = options.registry.getModel(input.activeModelId);
@@ -43,19 +50,17 @@ export function createEditJobFactory(options: EditJobFactoryOptions): EditJobFac
         throw new Error(`Unknown active model: ${input.activeModelId}`);
       }
 
-      const outputModel = options.registry.registerDerivedModel({
-        parentModelId: baseModel.modelId,
-        sourceFileName: `${stripStlExtension(baseModel.sourceFileName)}-edited.stl`,
-        jobId,
-      });
-
       const workspacePath = join(jobsRoot, jobId);
       const contextPath = join(workspacePath, 'context.json');
       const scriptPath = join(workspacePath, 'edit.py');
       const resultPath = join(workspacePath, 'result.json');
 
       await mkdir(workspacePath, { recursive: true });
-      await writeFile(contextPath, buildContextJson(jobId, baseModel, outputModel, input), 'utf8');
+      await writeFile(
+        contextPath,
+        buildContextJson(jobId, baseModel, null, input.selectionContext, input.viewContext, input.userInstruction),
+        'utf8',
+      );
 
       return {
         jobId,
@@ -64,6 +69,35 @@ export function createEditJobFactory(options: EditJobFactoryOptions): EditJobFac
         scriptPath,
         resultPath,
         baseModel,
+        selectionContext: input.selectionContext,
+        viewContext: input.viewContext,
+        userInstruction: input.userInstruction,
+      };
+    },
+    async prepareExecution(draftJob: DraftJobRecord): Promise<ExecutionJobRecord> {
+      const outputModel = options.registry.registerDerivedModel({
+        parentModelId: draftJob.baseModel.modelId,
+        sourceFileName: `${stripStlExtension(draftJob.baseModel.sourceFileName)}-edited.stl`,
+        jobId: draftJob.jobId,
+      });
+
+      await rm(draftJob.resultPath, { force: true });
+      await rm(outputModel.storagePath, { force: true });
+      await writeFile(
+        draftJob.contextPath,
+        buildContextJson(
+          draftJob.jobId,
+          draftJob.baseModel,
+          outputModel,
+          draftJob.selectionContext,
+          draftJob.viewContext,
+          draftJob.userInstruction,
+        ),
+        'utf8',
+      );
+
+      return {
+        ...draftJob,
         outputModel,
       };
     },
@@ -73,19 +107,21 @@ export function createEditJobFactory(options: EditJobFactoryOptions): EditJobFac
 function buildContextJson(
   jobId: string,
   baseModel: ModelRecord,
-  outputModel: ModelRecord,
-  input: EditJobInput,
+  outputModel: ModelRecord | null,
+  selectionContext: SelectionContextPayload,
+  viewContext: ViewContextPayload,
+  userInstruction: string,
 ): string {
   return JSON.stringify(
     {
       jobId,
       baseModelId: baseModel.modelId,
-      activeModelId: input.activeModelId,
+      activeModelId: baseModel.modelId,
       baseModelPath: baseModel.storagePath,
-      outputModelPath: outputModel.storagePath,
-      selectionContext: input.selectionContext,
-      viewContext: input.viewContext,
-      userInstruction: input.userInstruction,
+      outputModelPath: outputModel?.storagePath ?? null,
+      selectionContext,
+      viewContext,
+      userInstruction,
     },
     null,
     2,

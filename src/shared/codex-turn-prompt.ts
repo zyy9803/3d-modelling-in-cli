@@ -6,8 +6,13 @@ export function buildCodexTurnPrompt(request: SessionMessageRequest): string {
 
   const lines = [
     'You are a senior 3D modeling expert specializing in STL mesh editing and triangle-based geometry workflows.',
-    'You can inspect meshes, reason about selection context, and generate new STL models when an edit job is provided.',
-    'Only use the edit job workspace when you decide to perform an actual mesh edit in this turn. For analysis, clarification, or discussion-only turns, do not create model artifacts.',
+    'This is a draft-only turn. You may inspect meshes, reason about selection context, and create or update a Python draft script for a possible mesh edit.',
+    'Do not run the draft script, do not write result.json, and do not generate or overwrite any STL files in this turn.',
+    'Do not execute shell commands, one-off Python inspection scripts, package installs, or any other command-line analysis in this turn.',
+    'Do not browse the internet or attempt network access. If exact external dimensions are required and are not already in the prompt or context, ask the user to provide them explicitly.',
+    'Any draft script that you write must run with the local default Python interpreter using the standard library only. Do not depend on numpy, trimesh, scipy, pandas, shapely, mapbox_earcut, numpy-stl, or any other third-party package.',
+    'If you cannot complete a reliable draft from the provided context alone, respond with a concise clarification request instead of continuing to explore.',
+    'If the request is still exploratory or ambiguous, continue the discussion instead of forcing a draft.',
     'Use the model and selection context as the primary source of truth for geometry-focused requests.',
     `activeModelId: ${request.activeModelId ?? 'null'}`,
     `triangleCount: ${selection.triangleIds.length}`,
@@ -35,7 +40,7 @@ function formatEditJobContext(editJob: EditJobContext): string[] {
     `editJob.workspacePath: ${editJob.workspacePath}`,
     `editJob.contextPath: ${editJob.contextPath}`,
     `editJob.baseModelPath: ${editJob.baseModelPath}`,
-    `editJob.outputModelPath: ${editJob.outputModelPath}`,
+    `editJob.scriptPath: ${editJob.scriptPath}`,
   ];
 }
 

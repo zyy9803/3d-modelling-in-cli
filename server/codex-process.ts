@@ -67,7 +67,7 @@ export class CodexProcessManager extends EventEmitter {
         '--sandbox',
         'danger-full-access',
         '--ask-for-approval',
-        'on-request',
+        'never',
         'app-server',
         '--listen',
         this.listenUrl,

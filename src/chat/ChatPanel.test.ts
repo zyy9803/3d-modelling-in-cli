@@ -4,6 +4,7 @@ import { createChatPanel, type ChatPanelState } from './ChatPanel';
 
 const noopHandlers = {
   onSend: vi.fn(),
+  onGenerateModel: vi.fn(),
   onInterrupt: vi.fn(),
   onClearSession: vi.fn(),
   onDecision: vi.fn(),
@@ -16,6 +17,13 @@ function createBaseState(): ChatPanelState {
     sessionStatus: 'completed',
     activeModelId: 'model-1',
     modelLabel: 'Model 1',
+    draft: {
+      status: 'empty',
+      jobId: null,
+      baseModelId: null,
+      scriptPath: null,
+      message: null,
+    },
     messages: [],
     pendingDecision: null,
     contextSummary: {
@@ -80,6 +88,28 @@ describe('createChatPanel', () => {
     expect(details?.textContent).toContain('状态');
     expect(details?.textContent).toContain('in_progress');
     expect(details?.textContent).toContain('Generate a revised mesh-edit approach.');
+  });
+
+  it('enables the generate button only when a draft script is ready', () => {
+    const panel = createChatPanel(noopHandlers);
+
+    panel.render({
+      ...createBaseState(),
+      draft: {
+        status: 'ready',
+        jobId: 'job_001',
+        baseModelId: 'model_001',
+        scriptPath: '/tmp/job_001/edit.py',
+        message: null,
+      },
+    });
+
+    const generateButton = panel.element.querySelector<HTMLButtonElement>('[data-generate-model="true"]');
+    expect(generateButton?.disabled).toBe(false);
+    expect(generateButton?.textContent).toContain('生成新模型');
+
+    panel.render(createBaseState());
+    expect(generateButton?.disabled).toBe(true);
   });
 
   it('renders thinking as a collapsed card with expandable content', () => {

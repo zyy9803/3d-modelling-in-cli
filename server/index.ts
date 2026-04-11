@@ -56,6 +56,7 @@ export async function startServer(listenPort: number = httpPort): Promise<http.S
   });
 
   console.log(`Codex session server listening on http://127.0.0.1:${listenPort}`);
+  console.log(`Session debug log: ${process.cwd()}/artifacts/logs/session-debug.log`);
   return server;
 }
 

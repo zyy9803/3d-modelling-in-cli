@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type {
+  SessionGenerateModelRequest,
   SessionImportModelRequest,
   SessionImportModelResponse,
   SessionDecisionRequest,
@@ -17,6 +18,7 @@ type JsonValue = Record<string, unknown> | Array<unknown> | string | number | bo
 export function createRequestListener(session: CodexSessionController) {
   return async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+    console.log(`[session-route] ${request.method ?? 'UNKNOWN'} ${url.pathname}`);
 
     if (request.method === 'OPTIONS') {
       writeCorsHeaders(response);
@@ -44,6 +46,12 @@ export function createRequestListener(session: CodexSessionController) {
     if (url.pathname === '/api/session/decision' && request.method === 'POST') {
       const payload = await readJsonBody<SessionDecisionRequest>(request);
       writeJson(response, 202, await session.submitDecision(payload));
+      return;
+    }
+
+    if (url.pathname === '/api/session/model-generate' && request.method === 'POST') {
+      const payload = await readJsonBody<SessionGenerateModelRequest>(request);
+      writeJson(response, 202, await session.generateModel(payload));
       return;
     }
 

@@ -46,7 +46,17 @@ export type EditJobContext = {
   workspacePath: string;
   contextPath: string;
   baseModelPath: string;
-  outputModelPath: string;
+  scriptPath: string;
+};
+
+export type DraftStatus = 'empty' | 'ready' | 'running' | 'executed' | 'failed';
+
+export type DraftState = {
+  status: DraftStatus;
+  jobId: string | null;
+  baseModelId: string | null;
+  scriptPath: string | null;
+  message: string | null;
 };
 
 export type SessionMessageRequest = {
@@ -59,6 +69,10 @@ export type SessionMessageRequest = {
   selectionContext: SelectionContextPayload;
   viewContext: ViewContextPayload;
   editJob?: EditJobContext;
+};
+
+export type SessionGenerateModelRequest = {
+  sessionId: string;
 };
 
 export type SessionInterruptRequest = {
@@ -160,6 +174,10 @@ export type SessionStreamEvent =
   | {
       type: 'status_changed';
       status: ChatSessionStatus;
+    }
+  | {
+      type: 'draft_state_changed';
+      draft: DraftState;
     }
   | {
       type: 'message_started';

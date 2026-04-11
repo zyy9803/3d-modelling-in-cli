@@ -136,6 +136,13 @@ export class MockSessionClient {
       sessionStatus: 'idle',
       activeModelId: MOCK_MODEL_ID,
       modelLabel: MOCK_MODEL_LABEL,
+      draft: {
+        status: 'empty',
+        jobId: null,
+        baseModelId: null,
+        scriptPath: null,
+        message: null,
+      },
     };
   }
 
@@ -195,6 +202,31 @@ export class MockSessionClient {
     this.emit({
       type: 'turn_interrupted',
       turnId: `mock-turn-${payload.sessionId}`,
+    });
+  }
+
+  public async generateModel(): Promise<void> {
+    this.emit({
+      type: 'model_generation_started',
+      jobId: 'job_mock_001',
+      baseModelId: MOCK_MODEL_ID,
+    });
+    this.emit({
+      type: 'draft_state_changed',
+      draft: {
+        status: 'executed',
+        jobId: 'job_mock_001',
+        baseModelId: MOCK_MODEL_ID,
+        scriptPath: '/mock/artifacts/jobs/job_mock_001/edit.py',
+        message: null,
+      },
+    });
+    this.emit({
+      type: 'model_generated',
+      jobId: 'job_mock_001',
+      baseModelId: MOCK_MODEL_ID,
+      newModelId: 'model_mock_002',
+      modelLabel: 'mock-preview-edited.stl',
     });
   }
 

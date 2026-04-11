@@ -130,6 +130,7 @@ describe('createRequestListener', () => {
         error.code = 'EACCES';
         throw error;
       },
+      async writeModelFile(): Promise<void> {},
       async outputModelExists(): Promise<boolean> {
         return false;
       },

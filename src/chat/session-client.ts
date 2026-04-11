@@ -1,6 +1,8 @@
 import type {
   ChatSessionStatus,
   CodexConnectionStatus,
+  DraftState,
+  SessionGenerateModelRequest,
   SessionImportModelResponse,
   SessionDecisionRequest,
   SessionInterruptRequest,
@@ -15,6 +17,7 @@ export type SessionStatusResponse = {
   sessionStatus: ChatSessionStatus;
   activeModelId: string | null;
   modelLabel: string | null;
+  draft: DraftState;
 };
 
 type SessionClientOptions = {
@@ -120,6 +123,10 @@ export class SessionClient {
 
   async sendDecision(payload: SessionDecisionRequest): Promise<void> {
     await this.postJson('/api/session/decision', payload);
+  }
+
+  async generateModel(payload: SessionGenerateModelRequest): Promise<void> {
+    await this.postJson('/api/session/model-generate', payload);
   }
 
   async interrupt(payload: SessionInterruptRequest): Promise<void> {

@@ -59,6 +59,13 @@ describe('createChatStore', () => {
     const store = createChatStore({
       activeModelId: 'model_001',
       modelLabel: 'part-original.stl',
+      draft: {
+        status: 'empty',
+        jobId: null,
+        baseModelId: null,
+        scriptPath: null,
+        message: null,
+      },
       messages: [
         {
           kind: 'message',
@@ -70,6 +77,16 @@ describe('createChatStore', () => {
       ],
     });
 
+    store.applyEvent({
+      type: 'draft_state_changed',
+      draft: {
+        status: 'ready',
+        jobId: 'job_001',
+        baseModelId: 'model_001',
+        scriptPath: '/tmp/job_001/edit.py',
+        message: null,
+      },
+    });
     store.applyEvent({
       type: 'model_generation_started',
       jobId: 'job_001',
@@ -93,8 +110,10 @@ describe('createChatStore', () => {
 
     expect(state.activeModelId).toBe('model_001');
     expect(state.modelLabel).toBe('part-original.stl');
+    expect(state.draft.status).toBe('running');
     expect(state.messages.map((message) => message.text)).toEqual([
       'keep this conversation',
+      '草稿脚本已就绪：/tmp/job_001/edit.py',
       'New model generated: part-edited.stl',
       'Model generation failed: generation failed',
     ]);

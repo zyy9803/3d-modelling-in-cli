@@ -24,6 +24,7 @@ type SessionClientLike = Pick<
   | 'connect'
   | 'getStatus'
   | 'sendMessage'
+  | 'generateModel'
   | 'sendDecision'
   | 'interrupt'
   | 'importModel'
@@ -50,6 +51,9 @@ export class ViewerApp {
   private readonly chatPanel = createChatPanel({
     onSend: (text) => {
       void this.handleSendMessage(text);
+    },
+    onGenerateModel: () => {
+      void this.handleGenerateModel();
     },
     onInterrupt: () => {
       void this.handleInterruptTurn();
@@ -225,6 +229,10 @@ export class ViewerApp {
           type: 'status_changed',
           status: status.sessionStatus,
         });
+        this.chatStore.applyEvent({
+          type: 'draft_state_changed',
+          draft: status.draft,
+        });
         if (
           this.activeModelId === null &&
           this.activeModelLabel === null &&
@@ -386,6 +394,16 @@ export class ViewerApp {
   private async handleClearSession(): Promise<void> {
     try {
       await this.sessionClient.clearSession();
+    } catch (error) {
+      this.reportChatError(error, 'session');
+    }
+  }
+
+  private async handleGenerateModel(): Promise<void> {
+    try {
+      await this.sessionClient.generateModel({
+        sessionId: SESSION_ID,
+      });
     } catch (error) {
       this.reportChatError(error, 'session');
     }

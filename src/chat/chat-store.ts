@@ -2,6 +2,7 @@ import type {
   ChatSessionStatus,
   CodexConnectionStatus,
   DecisionQuestion,
+  DraftState,
   SessionContentFormat,
   SessionActivityKind,
   SessionDecisionCard,
@@ -48,6 +49,7 @@ export type ChatStoreState = {
   sessionId: string | null;
   activeModelId: string | null;
   modelLabel: string | null;
+  draft: DraftState;
   messages: ChatTimelineEntry[];
   pendingDecision: SessionDecisionCard | null;
   contextSummary: ChatContextSummary;
@@ -76,6 +78,13 @@ const DEFAULT_STATE: ChatStoreState = {
   sessionId: null,
   activeModelId: null,
   modelLabel: null,
+  draft: {
+    status: 'empty',
+    jobId: null,
+    baseModelId: null,
+    scriptPath: null,
+    message: null,
+  },
   messages: [],
   pendingDecision: null,
   contextSummary: DEFAULT_CONTEXT_SUMMARY,
@@ -148,6 +157,14 @@ export function createChatStore(initialState: Partial<ChatStoreState> = {}): Cha
           state.sessionStatus = event.status;
           if (event.status === 'resuming') {
             state.pendingDecision = null;
+          }
+          break;
+        case 'draft_state_changed':
+          state.draft = { ...event.draft };
+          if (event.draft.status === 'ready') {
+            pushSystemMessage(`草稿脚本已就绪：${event.draft.scriptPath ?? event.draft.jobId ?? 'edit.py'}`);
+          } else if (event.draft.status === 'failed' && event.draft.message) {
+            pushSystemMessage(`草稿脚本状态异常：${event.draft.message}`);
           }
           break;
         case 'message_started': {
@@ -293,6 +310,13 @@ export function createChatStore(initialState: Partial<ChatStoreState> = {}): Cha
           );
           break;
         case 'model_generation_started':
+          state.draft = {
+            ...state.draft,
+            status: 'running',
+            jobId: event.jobId,
+            baseModelId: event.baseModelId,
+            message: null,
+          };
           break;
         case 'model_generated':
           pushSystemMessage(`New model generated: ${event.modelLabel}`);
@@ -303,6 +327,7 @@ export function createChatStore(initialState: Partial<ChatStoreState> = {}): Cha
         case 'session_cleared':
           state.sessionId = null;
           state.sessionStatus = 'idle';
+          state.draft = { ...DEFAULT_STATE.draft };
           state.messages = [];
           state.pendingDecision = null;
           break;
@@ -351,6 +376,7 @@ export function createChatStore(initialState: Partial<ChatStoreState> = {}): Cha
     clearSessionView(): void {
       state.sessionId = null;
       state.sessionStatus = 'idle';
+      state.draft = { ...DEFAULT_STATE.draft };
       state.messages = [];
       state.pendingDecision = null;
       notify();
@@ -361,6 +387,7 @@ export function createChatStore(initialState: Partial<ChatStoreState> = {}): Cha
 function cloneState(state: ChatStoreState): ChatStoreState {
   return {
     ...state,
+    draft: { ...state.draft },
     contextSummary: { ...state.contextSummary },
     messages: state.messages.map(cloneTimelineEntry),
     pendingDecision: state.pendingDecision ? cloneDecision(state.pendingDecision) : null,

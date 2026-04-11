@@ -3,6 +3,7 @@ import type { SessionDecisionCard, SessionInfoField } from '../shared/codex-sess
 
 export type ChatPanelHandlers = {
   onSend: (text: string) => void | Promise<void>;
+  onGenerateModel: () => void | Promise<void>;
   onInterrupt: () => void | Promise<void>;
   onClearSession: () => void | Promise<void>;
   onDecision: (decisionId: string, answers: Record<string, string>) => void | Promise<void>;
@@ -21,6 +22,7 @@ export type ChatPanelState = Pick<
   | 'sessionStatus'
   | 'activeModelId'
   | 'modelLabel'
+  | 'draft'
   | 'messages'
   | 'pendingDecision'
   | 'contextSummary'
@@ -104,7 +106,13 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
   sendButton.textContent = '发送';
   sendButton.className = 'button button--composer-send';
 
-  composerActions.append(sendButton);
+  const generateButton = document.createElement('button');
+  generateButton.type = 'button';
+  generateButton.dataset.generateModel = 'true';
+  generateButton.textContent = '生成新模型';
+  generateButton.className = 'button button--ghost button--compact';
+
+  composerActions.append(generateButton, sendButton);
   composerSurface.append(input, composerActions);
   composer.append(composerSurface);
 
@@ -134,6 +142,10 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
     syncComposerHeight(input);
   });
 
+  generateButton.addEventListener('click', () => {
+    void handlers.onGenerateModel();
+  });
+
   syncComposerHeight(input);
 
   function render(state: ChatPanelState): void {
@@ -148,6 +160,8 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
     input.disabled = state.sessionStatus === 'waiting_decision' || state.sessionStatus === 'resuming';
     sendButton.disabled = state.sessionStatus === 'waiting_decision' || state.sessionStatus === 'resuming';
     sendButton.textContent = state.sessionStatus === 'streaming' ? '追加' : '发送';
+    generateButton.disabled = state.draft.status !== 'ready' && state.draft.status !== 'failed';
+    generateButton.textContent = formatGenerateButtonLabel(state.draft.status);
   }
 
   function focusInput(): void {
@@ -159,6 +173,21 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
     render,
     focusInput,
   };
+}
+
+function formatGenerateButtonLabel(status: ChatPanelState['draft']['status']): string {
+  switch (status) {
+    case 'ready':
+      return '生成新模型';
+    case 'running':
+      return '生成中';
+    case 'executed':
+      return '已生成';
+    case 'failed':
+      return '重新生成';
+    default:
+      return '生成新模型';
+  }
 }
 
 function syncComposerHeight(input: HTMLTextAreaElement): void {

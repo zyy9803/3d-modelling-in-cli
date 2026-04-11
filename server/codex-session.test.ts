@@ -170,7 +170,7 @@ describe('CodexSessionController', () => {
     mockState.processes.length = 0;
   });
 
-  it('creates an edit job on submitMessage without emitting generation events before output exists', async () => {
+  it('creates a draft job on submitMessage and sends draft-only prompt context', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
     const controller = new CodexSessionController({
       rootDir,
@@ -224,223 +224,14 @@ describe('CodexSessionController', () => {
     );
     expect(String(gateway.startTurnCalls[0].input[0].text)).toContain('editJob.jobId: job_001');
     expect(String(gateway.startTurnCalls[0].input[0].text)).toContain(
-      `editJob.outputModelPath: ${join(rootDir, 'artifacts', 'models', 'model_002_from_model_001.stl')}`,
+      `editJob.scriptPath: ${join(rootDir, 'artifacts', 'jobs', 'job_001', 'edit.py')}`,
+    );
+    expect(String(gateway.startTurnCalls[0].input[0].text)).toContain(
+      'Do not run the draft script, do not write result.json, and do not generate or overwrite any STL files in this turn.',
     );
   });
 
-  it('emits model_generated when the generated STL exists after turn completion', async () => {
-    const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
-    const controller = new CodexSessionController({
-      rootDir,
-      appServerPort: 4179,
-      sessionId: 'sess_main',
-    });
-    const events: Array<Record<string, unknown>> = [];
-    controller.subscribe((event) => {
-      events.push(event as Record<string, unknown>);
-    });
-
-    await controller.switchModel({
-      sessionId: 'sess_main',
-      activeModelId: 'model_001',
-      modelLabel: 'part.stl',
-    });
-    events.length = 0;
-
-    await controller.submitMessage({
-      sessionId: 'sess_main',
-      activeModelId: 'model_001',
-      message: {
-        role: 'user',
-        text: 'raise the selected patch by 2mm',
-      },
-      selectionContext: {
-        mode: 'click',
-        triangleIds: [1, 2, 3],
-        components: [],
-      },
-      viewContext: {
-        cameraPosition: [0, 0, 10],
-        target: [0, 0, 0],
-        up: [0, 1, 0],
-        fov: 50,
-        viewDirection: [0, 0, -1],
-        dominantOrientation: '+Z',
-        viewportSize: [1280, 720],
-      },
-    });
-
-    const outputPath = join(rootDir, 'artifacts', 'models', 'model_002_from_model_001.stl');
-    await writeFile(outputPath, 'solid demo\nendsolid demo\n', 'utf8');
-
-    await (controller as unknown as {
-      handleNotification(notification: ServerNotification): Promise<void>;
-    }).handleNotification({
-      method: 'turn/completed',
-      params: {
-        threadId: 'thread_1',
-        turn: {
-          id: 'turn_1',
-          status: 'completed',
-        },
-      },
-    });
-
-    expect(events).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: 'model_generated',
-          jobId: 'job_001',
-          baseModelId: 'model_001',
-          newModelId: 'model_002',
-          modelLabel: 'part-edited.stl',
-        }),
-      ]),
-    );
-  });
-
-  it('advances snapshot and replay to the generated model after successful completion', async () => {
-    const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
-    const controller = new CodexSessionController({
-      rootDir,
-      appServerPort: 4179,
-      sessionId: 'sess_main',
-    });
-
-    await controller.switchModel({
-      sessionId: 'sess_main',
-      activeModelId: 'model_001',
-      modelLabel: 'part.stl',
-    });
-
-    await controller.submitMessage({
-      sessionId: 'sess_main',
-      activeModelId: 'model_001',
-      message: {
-        role: 'user',
-        text: 'raise the selected patch by 2mm',
-      },
-      selectionContext: {
-        mode: 'click',
-        triangleIds: [1, 2, 3],
-        components: [],
-      },
-      viewContext: {
-        cameraPosition: [0, 0, 10],
-        target: [0, 0, 0],
-        up: [0, 1, 0],
-        fov: 50,
-        viewDirection: [0, 0, -1],
-        dominantOrientation: '+Z',
-        viewportSize: [1280, 720],
-      },
-    });
-
-    const outputPath = join(rootDir, 'artifacts', 'models', 'model_002_from_model_001.stl');
-    await writeFile(outputPath, 'solid demo\nfacet normal 0 0 1\nendsolid demo\n', 'utf8');
-
-    await (controller as unknown as {
-      handleNotification(notification: ServerNotification): Promise<void>;
-    }).handleNotification({
-      method: 'turn/completed',
-      params: {
-        threadId: 'thread_1',
-        turn: {
-          id: 'turn_1',
-          status: 'completed',
-        },
-      },
-    });
-
-    expect(controller.getSnapshot()).toMatchObject({
-      activeModelId: 'model_002',
-      modelLabel: 'part-edited.stl',
-    });
-
-    const replayedEvents: Array<Record<string, unknown>> = [];
-    controller.subscribe((event) => {
-      replayedEvents.push(event as Record<string, unknown>);
-    });
-
-    expect(replayedEvents).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: 'model_switched',
-          activeModelId: 'model_002',
-          modelLabel: 'part-edited.stl',
-        }),
-      ]),
-    );
-  });
-
-  it('treats a completed turn with no edit artifacts as a normal dialogue turn', async () => {
-    const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
-    const controller = new CodexSessionController({
-      rootDir,
-      appServerPort: 4179,
-      sessionId: 'sess_main',
-    });
-    const events: Array<Record<string, unknown>> = [];
-    controller.subscribe((event) => {
-      events.push(event as Record<string, unknown>);
-    });
-
-    await controller.switchModel({
-      sessionId: 'sess_main',
-      activeModelId: 'model_001',
-      modelLabel: 'part.stl',
-    });
-    events.length = 0;
-
-    await controller.submitMessage({
-      sessionId: 'sess_main',
-      activeModelId: 'model_001',
-      message: {
-        role: 'user',
-        text: 'raise the selected patch by 2mm',
-      },
-      selectionContext: {
-        mode: 'click',
-        triangleIds: [1, 2, 3],
-        components: [],
-      },
-      viewContext: {
-        cameraPosition: [0, 0, 10],
-        target: [0, 0, 0],
-        up: [0, 1, 0],
-        fov: 50,
-        viewDirection: [0, 0, -1],
-        dominantOrientation: '+Z',
-        viewportSize: [1280, 720],
-      },
-    });
-
-    await (controller as unknown as {
-      handleNotification(notification: ServerNotification): Promise<void>;
-    }).handleNotification({
-      method: 'turn/completed',
-      params: {
-        threadId: 'thread_1',
-        turn: {
-          id: 'turn_1',
-          status: 'completed',
-        },
-      },
-    });
-
-    expect(events).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: 'model_generation_failed',
-        }),
-        expect.objectContaining({
-          type: 'model_generated',
-        }),
-      ]),
-    );
-  });
-
-  it('emits model_generation_failed when Codex attempted generation but no STL was produced', async () => {
+  it('emits draft_state_changed ready when edit.py exists after turn completion', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
     const controller = new CodexSessionController({
       rootDir,
@@ -483,7 +274,7 @@ describe('CodexSessionController', () => {
     });
 
     const workspacePath = join(rootDir, 'artifacts', 'jobs', 'job_001');
-    await writeFile(join(workspacePath, 'edit.py'), 'print("attempted")\n', 'utf8');
+    await writeFile(join(workspacePath, 'edit.py'), 'print("draft ready")\n', 'utf8');
 
     await (controller as unknown as {
       handleNotification(notification: ServerNotification): Promise<void>;
@@ -501,10 +292,283 @@ describe('CodexSessionController', () => {
     expect(events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          type: 'draft_state_changed',
+          draft: expect.objectContaining({
+            status: 'ready',
+            jobId: 'job_001',
+            baseModelId: 'model_001',
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it('keeps draft state empty for normal dialogue turns with no draft script', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
+    const controller = new CodexSessionController({
+      rootDir,
+      appServerPort: 4179,
+      sessionId: 'sess_main',
+    });
+    const events: Array<Record<string, unknown>> = [];
+    controller.subscribe((event) => {
+      events.push(event as Record<string, unknown>);
+    });
+
+    await controller.switchModel({
+      sessionId: 'sess_main',
+      activeModelId: 'model_001',
+      modelLabel: 'part.stl',
+    });
+    events.length = 0;
+
+    await controller.submitMessage({
+      sessionId: 'sess_main',
+      activeModelId: 'model_001',
+      message: {
+        role: 'user',
+        text: 'let us discuss options first',
+      },
+      selectionContext: {
+        mode: 'click',
+        triangleIds: [1, 2, 3],
+        components: [],
+      },
+      viewContext: {
+        cameraPosition: [0, 0, 10],
+        target: [0, 0, 0],
+        up: [0, 1, 0],
+        fov: 50,
+        viewDirection: [0, 0, -1],
+        dominantOrientation: '+Z',
+        viewportSize: [1280, 720],
+      },
+    });
+
+    await (controller as unknown as {
+      handleNotification(notification: ServerNotification): Promise<void>;
+    }).handleNotification({
+      method: 'turn/completed',
+      params: {
+        threadId: 'thread_1',
+        turn: {
+          id: 'turn_1',
+          status: 'completed',
+        },
+      },
+    });
+
+    expect(controller.getSnapshot().draft).toEqual({
+      status: 'empty',
+      jobId: null,
+      baseModelId: null,
+      scriptPath: null,
+      message: null,
+    });
+    expect(events).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'model_generated',
+        }),
+      ]),
+    );
+  });
+
+  it('runs generation only when explicitly requested after a ready draft exists', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
+    const draftRunner = vi.fn(async () => {
+      const outputPath = join(rootDir, 'artifacts', 'models', 'model_002_from_model_001.stl');
+      await writeFile(outputPath, 'solid demo\nendsolid demo\n', 'utf8');
+    });
+    const controller = new CodexSessionController({
+      rootDir,
+      appServerPort: 4179,
+      sessionId: 'sess_main',
+      draftRunner,
+    });
+    const events: Array<Record<string, unknown>> = [];
+    controller.subscribe((event) => {
+      events.push(event as Record<string, unknown>);
+    });
+
+    await controller.switchModel({
+      sessionId: 'sess_main',
+      activeModelId: 'model_001',
+      modelLabel: 'part.stl',
+    });
+
+    await controller.submitMessage({
+      sessionId: 'sess_main',
+      activeModelId: 'model_001',
+      message: {
+        role: 'user',
+        text: 'raise the selected patch by 2mm',
+      },
+      selectionContext: {
+        mode: 'click',
+        triangleIds: [1, 2, 3],
+        components: [],
+      },
+      viewContext: {
+        cameraPosition: [0, 0, 10],
+        target: [0, 0, 0],
+        up: [0, 1, 0],
+        fov: 50,
+        viewDirection: [0, 0, -1],
+        dominantOrientation: '+Z',
+        viewportSize: [1280, 720],
+      },
+    });
+
+    await writeFile(join(rootDir, 'artifacts', 'jobs', 'job_001', 'edit.py'), 'print("draft")\n', 'utf8');
+
+    await (controller as unknown as {
+      handleNotification(notification: ServerNotification): Promise<void>;
+    }).handleNotification({
+      method: 'turn/completed',
+      params: {
+        threadId: 'thread_1',
+        turn: {
+          id: 'turn_1',
+          status: 'completed',
+        },
+      },
+    });
+
+    events.length = 0;
+    await controller.generateModel({
+      sessionId: 'sess_main',
+    });
+
+    expect(draftRunner).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'model_generation_started',
+          jobId: 'job_001',
+          baseModelId: 'model_001',
+        }),
+        expect.objectContaining({
+          type: 'model_generated',
+          newModelId: 'model_002',
+          modelLabel: 'part-edited.stl',
+        }),
+        expect.objectContaining({
+          type: 'draft_state_changed',
+          draft: expect.objectContaining({
+            status: 'executed',
+            jobId: 'job_001',
+          }),
+        }),
+      ]),
+    );
+
+    expect(controller.getSnapshot()).toMatchObject({
+      activeModelId: 'model_002',
+      modelLabel: 'part-edited.stl',
+      draft: expect.objectContaining({
+        status: 'executed',
+      }),
+    });
+
+    const replayedEvents: Array<Record<string, unknown>> = [];
+    controller.subscribe((event) => {
+      replayedEvents.push(event as Record<string, unknown>);
+    });
+
+    expect(replayedEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'model_switched',
+          activeModelId: 'model_002',
+          modelLabel: 'part-edited.stl',
+        }),
+        expect.objectContaining({
+          type: 'draft_state_changed',
+          draft: expect.objectContaining({
+            status: 'executed',
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it('emits model_generation_failed when the explicit execution does not produce a valid STL', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
+    const controller = new CodexSessionController({
+      rootDir,
+      appServerPort: 4179,
+      sessionId: 'sess_main',
+      draftRunner: vi.fn(async () => {}),
+    });
+    const events: Array<Record<string, unknown>> = [];
+    controller.subscribe((event) => {
+      events.push(event as Record<string, unknown>);
+    });
+
+    await controller.switchModel({
+      sessionId: 'sess_main',
+      activeModelId: 'model_001',
+      modelLabel: 'part.stl',
+    });
+    events.length = 0;
+
+    await controller.submitMessage({
+      sessionId: 'sess_main',
+      activeModelId: 'model_001',
+      message: {
+        role: 'user',
+        text: 'raise the selected patch by 2mm',
+      },
+      selectionContext: {
+        mode: 'click',
+        triangleIds: [1, 2, 3],
+        components: [],
+      },
+      viewContext: {
+        cameraPosition: [0, 0, 10],
+        target: [0, 0, 0],
+        up: [0, 1, 0],
+        fov: 50,
+        viewDirection: [0, 0, -1],
+        dominantOrientation: '+Z',
+        viewportSize: [1280, 720],
+      },
+    });
+
+    await writeFile(join(rootDir, 'artifacts', 'jobs', 'job_001', 'edit.py'), 'print("draft")\n', 'utf8');
+
+    await (controller as unknown as {
+      handleNotification(notification: ServerNotification): Promise<void>;
+    }).handleNotification({
+      method: 'turn/completed',
+      params: {
+        threadId: 'thread_1',
+        turn: {
+          id: 'turn_1',
+          status: 'completed',
+        },
+      },
+    });
+
+    events.length = 0;
+    await controller.generateModel({
+      sessionId: 'sess_main',
+    });
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
           type: 'model_generation_failed',
           jobId: 'job_001',
           baseModelId: 'model_001',
           message: expect.stringContaining('Generated STL not found'),
+        }),
+        expect.objectContaining({
+          type: 'draft_state_changed',
+          draft: expect.objectContaining({
+            status: 'failed',
+          }),
         }),
       ]),
     );
