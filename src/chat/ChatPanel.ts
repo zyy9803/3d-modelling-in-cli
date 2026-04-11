@@ -43,17 +43,19 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
 
   const connectionText = document.createElement('span');
   const sessionStatusText = document.createElement('span');
-  const modelText = document.createElement('span');
+  sessionStatusText.className = 'chat-panel__meta-item';
 
   const interruptButton = document.createElement('button');
   interruptButton.type = 'button';
   interruptButton.dataset.interruptTurn = 'true';
   interruptButton.textContent = '中断';
+  interruptButton.className = 'button button--ghost button--compact';
 
   const clearButton = document.createElement('button');
   clearButton.type = 'button';
   clearButton.dataset.clearSession = 'true';
   clearButton.textContent = '清空会话';
+  clearButton.className = 'button button--ghost button--compact';
 
   const header = document.createElement('header');
   header.className = 'chat-panel__header';
@@ -64,9 +66,10 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
 
   const metaRow = document.createElement('div');
   metaRow.className = 'chat-panel__meta';
-  metaRow.append(sessionStatusText, modelText);
+  metaRow.append(sessionStatusText);
 
   const headerLeft = document.createElement('div');
+  headerLeft.className = 'chat-panel__header-main';
   headerLeft.append(statusRow, metaRow);
 
   const headerActions = document.createElement('div');
@@ -74,14 +77,6 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
   headerActions.append(interruptButton, clearButton);
 
   header.append(headerLeft, headerActions);
-
-  const contextStrip = document.createElement('section');
-  contextStrip.className = 'chat-panel__context';
-
-  const triangleCount = document.createElement('span');
-  const componentCount = document.createElement('span');
-  const orientation = document.createElement('span');
-  contextStrip.append(triangleCount, componentCount, orientation);
 
   const messages = document.createElement('section');
   messages.className = 'chat-panel__messages';
@@ -93,10 +88,15 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
   composer.className = 'chat-panel__input';
   composer.dataset.chatForm = 'true';
 
+  const composerSurface = document.createElement('div');
+  composerSurface.className = 'chat-panel__composer-surface';
+
   const input = document.createElement('textarea');
   input.dataset.chatInput = 'true';
-  input.rows = 4;
-  input.placeholder = '输入你希望 Codex 处理的修改说明';
+  input.rows = 1;
+  input.id = 'chat-panel-input';
+  input.placeholder = '描述你希望 Codex 在当前选区执行的修改';
+  input.setAttribute('aria-label', '发送给 Codex 的修改说明');
 
   const composerActions = document.createElement('div');
   composerActions.className = 'chat-panel__composer-actions';
@@ -105,11 +105,13 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
   sendButton.type = 'submit';
   sendButton.dataset.chatSend = 'true';
   sendButton.textContent = '发送';
+  sendButton.className = 'button button--composer-send';
 
   composerActions.append(sendButton);
-  composer.append(input, composerActions);
+  composerSurface.append(input, composerActions);
+  composer.append(composerSurface);
 
-  root.append(header, contextStrip, messages, decisionHost, composer);
+  root.append(header, messages, decisionHost, composer);
 
   clearButton.addEventListener('click', () => {
     void handlers.onClearSession();
@@ -117,6 +119,10 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
 
   interruptButton.addEventListener('click', () => {
     void handlers.onInterrupt();
+  });
+
+  input.addEventListener('input', () => {
+    syncComposerHeight(input);
   });
 
   composer.addEventListener('submit', (event) => {
@@ -128,15 +134,14 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
 
     void handlers.onSend(text);
     input.value = '';
+    syncComposerHeight(input);
   });
+
+  syncComposerHeight(input);
 
   function render(state: ChatPanelState): void {
     renderConnectionStatus(statusLight, connectionText, state.connectionStatus, state.connectionMessage);
     sessionStatusText.textContent = `会话状态：${formatSessionStatus(state.sessionStatus)}`;
-    modelText.textContent = `当前模型：${state.modelLabel ?? state.activeModelId ?? '未加载'}`;
-    triangleCount.textContent = `已选三角面：${state.contextSummary.triangleCount}`;
-    componentCount.textContent = `连通块：${state.contextSummary.componentCount}`;
-    orientation.textContent = `方向：${state.contextSummary.orientation}`;
     messages.innerHTML = renderMessageList(state.messages);
     bindCollapsibleCards(messages, openCards);
     decisionHost.innerHTML = state.pendingDecision ? renderDecisionCardMarkup(state.pendingDecision) : '';
@@ -158,6 +163,13 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
     render,
     focusInput,
   };
+}
+
+function syncComposerHeight(input: HTMLTextAreaElement): void {
+  input.style.height = '0px';
+  const nextHeight = Math.min(Math.max(input.scrollHeight, 64), 200);
+  input.style.height = `${nextHeight}px`;
+  input.style.overflowY = input.scrollHeight > 200 ? 'auto' : 'hidden';
 }
 
 function bindCollapsibleCards(host: HTMLElement, openCards: Set<string>): void {
@@ -189,7 +201,7 @@ function renderConnectionStatus(
   message: string,
 ): void {
   statusLight.className = `chat-light chat-light--${connectionStatus}`;
-  connectionText.textContent = message;
+  connectionText.textContent = formatConnectionStatus(connectionStatus, message);
   connectionText.dataset.codexConnectionMessage = 'true';
 }
 
@@ -210,7 +222,12 @@ function renderMessageList(messages: ChatTimelineEntry[]): string {
   });
 
   if (visibleMessages.length === 0) {
-    return '<div class="chat-panel__empty">还没有消息</div>';
+    return `
+      <div class="chat-panel__empty">
+        <strong>等待第一条指令</strong>
+        <span>还没有消息。导入模型并选中局部区域后，就可以开始和 Codex 协作。</span>
+      </div>
+    `;
   }
 
   return visibleMessages.map((message) => renderTimelineEntry(message)).join('');
@@ -358,13 +375,14 @@ function renderDecisionCardMarkup(decision: SessionDecisionCard): string {
   return `
     <section class="chat-decision" data-decision-card="true" data-decision-id="${escapeHtml(decision.id)}">
       <header class="chat-decision__header">
+        <p class="chat-decision__eyebrow">需要你的决策</p>
         <h3>${escapeHtml(decision.title)}</h3>
         <p>${escapeHtml(decision.body)}</p>
       </header>
       ${detailMarkup}
       <div class="chat-decision__questions">${questions}</div>
       <footer class="chat-decision__footer">
-        <button type="button" data-decision-submit="true">提交决策</button>
+        <button class="button button--primary" type="button" data-decision-submit="true">提交决策</button>
       </footer>
     </section>
   `;
@@ -506,6 +524,24 @@ function formatEntryStatus(status: ChatMessage['status']): string {
       return '已中断';
     default:
       return '';
+  }
+}
+
+function formatConnectionStatus(
+  status: ChatPanelState['connectionStatus'],
+  message: string,
+): string {
+  switch (status) {
+    case 'connected':
+      return 'Codex 已连接';
+    case 'starting':
+      return '正在连接 Codex';
+    case 'disconnected':
+      return message || 'Codex 已断开连接';
+    case 'failed':
+      return message || 'Codex 连接失败';
+    default:
+      return message;
   }
 }
 

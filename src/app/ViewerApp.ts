@@ -104,34 +104,49 @@ export class ViewerApp {
   private render(): void {
     this.root.innerHTML = `
       <div class="app-shell app-shell--with-chat">
+        <a class="skip-link" href="#workspace-main">跳转到主内容</a>
         <div class="app-main">
           <header class="topbar">
-            <div>
-              <h1>STL Web 预览器</h1>
-              <p>拖拽本地 .stl 文件或点击选择文件</p>
+            <div class="topbar__intro">
+              <div class="topbar__title-group">
+                <h1>STL Web 预览器</h1>
+                <p>导入 .stl 后即可开始预览、选区和协作。</p>
+              </div>
             </div>
-            <button type="button" data-pick-file>选择文件</button>
+            <div class="topbar__actions">
+              <div class="file-meta is-hidden" data-file-meta></div>
+              <button class="button button--primary button--compact" type="button" data-pick-file>导入 STL</button>
+            </div>
             <input type="file" accept=".stl" hidden data-file-input />
-            <div class="file-meta is-hidden" data-file-meta></div>
           </header>
-          <main class="viewer-layout">
-            <section class="viewport-panel" data-viewport-panel>
-              <div class="viewport-host" data-viewport-host></div>
-              <div class="viewport-empty" data-empty-state>拖拽 STL 文件到这里开始预览</div>
-              <div class="viewport-error is-hidden" data-error-text></div>
-              <div data-dropzone-root></div>
-              <div class="orientation-anchor" data-orientation-root></div>
-            </section>
-          </main>
-          <footer class="toolbar">
-            <div class="selection-status" data-selection-status></div>
-            <div class="toolbar-actions">
-              <button type="button" data-export-context>导出上下文</button>
-              <button type="button" data-clear-selection>清空选择</button>
-              <button type="button" data-clear-session>清空会话</button>
-              <button type="button" data-reset-view>重置视角</button>
-            </div>
-          </footer>
+          <div class="workspace-shell" id="workspace-main">
+            <main class="viewer-layout">
+              <section class="viewport-panel" data-viewport-panel>
+                <div class="viewport-host" data-viewport-host></div>
+                <div class="viewport-empty" data-empty-state>
+                  <div class="empty-state">
+                    <h2>拖拽 STL 文件到这里开始预览</h2>
+                    <p>也可以直接从本地导入一个 .stl 文件开始工作。</p>
+                    <div class="empty-state__actions">
+                      <button class="button button--primary" type="button" data-pick-file>导入 STL</button>
+                      <span class="empty-state__meta">支持拖拽和点击导入</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="viewport-error is-hidden" data-error-text></div>
+                <div data-dropzone-root></div>
+                <div class="orientation-anchor" data-orientation-root></div>
+              </section>
+              <footer class="viewer-toolbar" aria-label="画布操作">
+                <p class="selection-status" data-selection-status></p>
+                <div class="viewer-toolbar__actions">
+                  <button class="button button--toolbar button--compact" type="button" data-reset-view>重置视角</button>
+                  <button class="button button--toolbar button--compact" type="button" data-export-context>导出上下文</button>
+                  <button class="button button--toolbar button--compact" type="button" data-clear-selection>清空选择</button>
+                </div>
+              </footer>
+            </main>
+          </div>
         </div>
         <div class="chat-slot" data-chat-slot></div>
       </div>
@@ -139,8 +154,10 @@ export class ViewerApp {
   }
 
   private bindEvents(): void {
-    this.requireElement<HTMLButtonElement>('[data-pick-file]').addEventListener('click', () => {
-      this.fileInput.click();
+    this.root.querySelectorAll<HTMLButtonElement>('[data-pick-file]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.fileInput.click();
+      });
     });
 
     this.fileInput.addEventListener('change', async () => {
