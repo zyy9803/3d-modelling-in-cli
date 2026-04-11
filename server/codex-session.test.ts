@@ -5,6 +5,9 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
+  CommandExecutionRequestApprovalParams,
+  FileChangeRequestApprovalParams,
+  PermissionsRequestApprovalParams,
   RequestId,
   ServerNotification,
   ServerRequest,
@@ -215,6 +218,9 @@ describe('CodexSessionController', () => {
     const gateway = mockState.gateways[0];
     expect(gateway.startThreadCalls).toHaveLength(1);
     expect(gateway.startTurnCalls).toHaveLength(1);
+    expect(gateway.startThreadCalls[0]?.developerInstructions).toContain(
+      'first read context.json and inspect the active STL from baseModelPath so you have a global understanding of the mesh before discussing or drafting modifications',
+    );
     expect(events).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -227,7 +233,10 @@ describe('CodexSessionController', () => {
       `editJob.scriptPath: ${join(rootDir, 'artifacts', 'jobs', 'job_001', 'edit.py')}`,
     );
     expect(String(gateway.startTurnCalls[0].input[0].text)).toContain(
-      'Do not run the draft script, do not write result.json, and do not generate or overwrite any STL files in this turn.',
+      'You must first inspect and globally parse the active STL',
+    );
+    expect(String(gateway.startTurnCalls[0].input[0].text)).toContain(
+      'read editJob.contextPath and inspect editJob.baseModelPath directly before making geometry claims or proposing edits.',
     );
   });
 
@@ -451,7 +460,8 @@ describe('CodexSessionController', () => {
         expect.objectContaining({
           type: 'model_generated',
           newModelId: 'model_002',
-          modelLabel: 'part-edited.stl',
+          modelLabel: 'model_002_from_model_001.stl',
+          modelPath: join(rootDir, 'artifacts', 'models', 'model_002_from_model_001.stl'),
         }),
         expect.objectContaining({
           type: 'draft_state_changed',
@@ -465,7 +475,7 @@ describe('CodexSessionController', () => {
 
     expect(controller.getSnapshot()).toMatchObject({
       activeModelId: 'model_002',
-      modelLabel: 'part-edited.stl',
+      modelLabel: 'model_002_from_model_001.stl',
       draft: expect.objectContaining({
         status: 'executed',
       }),
@@ -481,7 +491,7 @@ describe('CodexSessionController', () => {
         expect.objectContaining({
           type: 'model_switched',
           activeModelId: 'model_002',
-          modelLabel: 'part-edited.stl',
+          modelLabel: 'model_002_from_model_001.stl',
         }),
         expect.objectContaining({
           type: 'draft_state_changed',
@@ -612,6 +622,148 @@ describe('CodexSessionController', () => {
           type: 'message_completed',
           messageId: 'msg_1',
         }),
+      ]),
+    );
+  });
+
+  it('auto-accepts command execution approvals without surfacing a decision card', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
+    const controller = new CodexSessionController({
+      rootDir,
+      appServerPort: 4179,
+      sessionId: 'sess_main',
+    });
+    const events: Array<Record<string, unknown>> = [];
+    controller.subscribe((event) => {
+      events.push(event as Record<string, unknown>);
+    });
+
+    const request: ServerRequest = {
+      method: 'item/commandExecution/requestApproval',
+      id: 'req_cmd_1',
+      params: {
+        threadId: 'thread_1',
+        turnId: 'turn_1',
+        itemId: 'cmd_1',
+        command: 'python inspect.py',
+        cwd: rootDir,
+        availableDecisions: ['accept', 'acceptForSession', 'decline'],
+      } satisfies CommandExecutionRequestApprovalParams,
+    };
+
+    await (controller as unknown as {
+      handleServerRequest(request: ServerRequest): Promise<void>;
+    }).handleServerRequest(request);
+
+    const gateway = mockState.gateways[0];
+    expect(gateway.respondCalls).toEqual([
+      {
+        requestId: 'req_cmd_1',
+        result: {
+          decision: 'acceptForSession',
+        },
+      },
+    ]);
+    expect(events).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'needs_decision' }),
+        expect.objectContaining({ type: 'session_paused' }),
+      ]),
+    );
+  });
+
+  it('auto-accepts file change approvals without surfacing a decision card', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
+    const controller = new CodexSessionController({
+      rootDir,
+      appServerPort: 4179,
+      sessionId: 'sess_main',
+    });
+    const events: Array<Record<string, unknown>> = [];
+    controller.subscribe((event) => {
+      events.push(event as Record<string, unknown>);
+    });
+
+    const request: ServerRequest = {
+      method: 'item/fileChange/requestApproval',
+      id: 'req_file_1',
+      params: {
+        threadId: 'thread_1',
+        turnId: 'turn_1',
+        itemId: 'file_1',
+        grantRoot: rootDir,
+      } satisfies FileChangeRequestApprovalParams,
+    };
+
+    await (controller as unknown as {
+      handleServerRequest(request: ServerRequest): Promise<void>;
+    }).handleServerRequest(request);
+
+    const gateway = mockState.gateways[0];
+    expect(gateway.respondCalls).toEqual([
+      {
+        requestId: 'req_file_1',
+        result: {
+          decision: 'acceptForSession',
+        },
+      },
+    ]);
+    expect(events).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'needs_decision' }),
+        expect.objectContaining({ type: 'session_paused' }),
+      ]),
+    );
+  });
+
+  it('auto-accepts permissions approvals without surfacing a decision card', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
+    const controller = new CodexSessionController({
+      rootDir,
+      appServerPort: 4179,
+      sessionId: 'sess_main',
+    });
+    const events: Array<Record<string, unknown>> = [];
+    controller.subscribe((event) => {
+      events.push(event as Record<string, unknown>);
+    });
+
+    const request: ServerRequest = {
+      method: 'item/permissions/requestApproval',
+      id: 'req_perm_1',
+      params: {
+        threadId: 'thread_1',
+        turnId: 'turn_1',
+        itemId: 'perm_1',
+        reason: 'Need network and file access',
+        permissions: {
+          network: { mode: 'enabled' },
+          fileSystem: { mode: 'full' },
+        },
+      } satisfies PermissionsRequestApprovalParams,
+    };
+
+    await (controller as unknown as {
+      handleServerRequest(request: ServerRequest): Promise<void>;
+    }).handleServerRequest(request);
+
+    const gateway = mockState.gateways[0];
+    expect(gateway.respondCalls).toEqual([
+      {
+        requestId: 'req_perm_1',
+        result: {
+          permissions: {
+            network: { mode: 'enabled' },
+            fileSystem: { mode: 'full' },
+          },
+          scope: 'session',
+        },
+      },
+    ]);
+    expect(events).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'needs_decision' }),
+        expect.objectContaining({ type: 'session_paused' }),
       ]),
     );
   });

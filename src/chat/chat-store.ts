@@ -319,7 +319,7 @@ export function createChatStore(initialState: Partial<ChatStoreState> = {}): Cha
           };
           break;
         case 'model_generated':
-          pushSystemMessage(`New model generated: ${event.modelLabel}`);
+          pushSystemMessage(`新 STL 已生成：${event.modelPath}`);
           break;
         case 'model_generation_failed':
           pushSystemMessage(`Model generation failed: ${event.message}`);

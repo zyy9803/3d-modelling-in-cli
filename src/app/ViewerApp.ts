@@ -69,10 +69,14 @@ export class ViewerApp {
   private viewport: ViewportLike | null = null;
   private activeModelId: string | null = null;
   private activeModelLabel: string | null = null;
+  private activeModelPath: string | null = null;
   private readonly viewportPanel: HTMLElement;
   private readonly viewportHost: HTMLElement;
   private readonly fileInput: HTMLInputElement;
   private readonly fileMeta: HTMLElement;
+  private readonly fileMetaName: HTMLElement;
+  private readonly fileMetaPath: HTMLElement;
+  private readonly fileMetaCopyButton: HTMLButtonElement;
   private readonly errorText: HTMLElement;
   private readonly emptyState: HTMLElement;
   private readonly orientationRoot: HTMLElement;
@@ -91,6 +95,9 @@ export class ViewerApp {
     this.dropzoneRoot.append(createFileDropzone());
     this.fileInput = this.requireElement<HTMLInputElement>('[data-file-input]');
     this.fileMeta = this.requireElement<HTMLElement>('[data-file-meta]');
+    this.fileMetaName = this.requireElement<HTMLElement>('[data-file-meta-name]');
+    this.fileMetaPath = this.requireElement<HTMLElement>('[data-file-meta-path]');
+    this.fileMetaCopyButton = this.requireElement<HTMLButtonElement>('[data-copy-model-path]');
     this.errorText = this.requireElement<HTMLElement>('[data-error-text]');
     this.emptyState = this.requireElement<HTMLElement>('[data-empty-state]');
     this.orientationRoot = this.requireElement<HTMLElement>('[data-orientation-root]');
@@ -118,7 +125,13 @@ export class ViewerApp {
               </div>
             </div>
             <div class="topbar__actions">
-              <div class="file-meta is-hidden" data-file-meta></div>
+              <div class="file-meta is-hidden" data-file-meta>
+                <div class="file-meta__text">
+                  <strong class="file-meta__name" data-file-meta-name></strong>
+                  <span class="file-meta__path" data-file-meta-path></span>
+                </div>
+                <button class="button button--ghost button--compact file-meta__copy is-hidden" type="button" data-copy-model-path>复制路径</button>
+              </div>
               <button class="button button--primary button--compact" type="button" data-pick-file>导入 STL</button>
             </div>
             <input type="file" accept=".stl" hidden data-file-input />
@@ -162,6 +175,9 @@ export class ViewerApp {
       button.addEventListener('click', () => {
         this.fileInput.click();
       });
+    });
+    this.fileMetaCopyButton.addEventListener('click', () => {
+      void this.copyActiveModelPath();
     });
 
     this.fileInput.addEventListener('change', async () => {
@@ -282,14 +298,14 @@ export class ViewerApp {
         this.applyModelContext(event.activeModelId, event.modelLabel);
         break;
       case 'model_generated':
-        void this.loadGeneratedModel(event.newModelId, event.modelLabel);
+        void this.loadGeneratedModel(event.newModelId, event.modelLabel, event.modelPath);
         break;
       default:
         break;
     }
   }
 
-  private async loadGeneratedModel(modelId: string, modelLabel: string): Promise<void> {
+  private async loadGeneratedModel(modelId: string, modelLabel: string, modelPath: string): Promise<void> {
     if (!this.viewport) {
       this.showError('Generated model could not be loaded because the viewport is unavailable.');
       return;
@@ -298,13 +314,13 @@ export class ViewerApp {
     try {
       const file = await this.sessionClient.fetchModelFile(modelId);
       await this.viewport.loadFile(file);
-      this.applyModelContext(modelId, modelLabel);
-      this.markViewportLoaded(modelLabel);
+      this.applyModelContext(modelId, modelLabel, modelPath);
+      this.markViewportLoaded(modelLabel, modelPath);
       this.syncChatContextSummary();
       this.showError('');
     } catch (error) {
       console.error(error);
-      this.showError(`Failed to load generated model: ${modelLabel}`);
+      this.showError(`Failed to load generated model: ${modelPath}`);
       this.reportChatError(error, 'session');
     }
   }
@@ -317,7 +333,7 @@ export class ViewerApp {
     try {
       const file = await this.sessionClient.fetchModelFile(modelId);
       await this.viewport.loadFile(file);
-      this.markViewportLoaded(modelLabel ?? file.name);
+      this.markViewportLoaded(modelLabel ?? file.name, null);
       this.syncChatContextSummary();
       this.showError('');
     } catch {
@@ -342,14 +358,13 @@ export class ViewerApp {
     }
 
     this.showError('');
-    this.fileMeta.textContent = `${file.name} · ${formatFileSize(file.size)}`;
-    this.fileMeta.classList.remove('is-hidden');
+    this.renderFileMeta(file.name, `${file.name} · ${formatFileSize(file.size)}`, null);
 
     try {
       await this.viewport.loadFile(file);
       const importedModel = await this.sessionClient.importModel(SESSION_ID, file);
-      this.applyModelContext(importedModel.modelId, importedModel.modelLabel);
-      this.markViewportLoaded(file.name);
+      this.applyModelContext(importedModel.modelId, importedModel.modelLabel, null);
+      this.markViewportLoaded(file.name, null);
       this.syncChatContextSummary();
     } catch (error) {
       console.error(error);
@@ -363,11 +378,6 @@ export class ViewerApp {
     const activeModelId = this.activeModelId;
     if (!payload || !activeModelId) {
       this.showError('请先加载 STL 文件后再发送给 Codex');
-      return;
-    }
-
-    if (payload.selectionContext.triangleIds.length === 0) {
-      this.showError('请先选中需要交给 Codex 的三角面');
       return;
     }
 
@@ -431,20 +441,42 @@ export class ViewerApp {
     }
   }
 
-  private applyModelContext(activeModelId: string | null, modelLabel: string | null): void {
+  private applyModelContext(activeModelId: string | null, modelLabel: string | null, modelPath: string | null = null): void {
     this.activeModelId = activeModelId;
     this.activeModelLabel = modelLabel;
+    this.activeModelPath = modelPath;
     this.chatStore.setModelContext({
       activeModelId,
       modelLabel,
     });
   }
 
-  private markViewportLoaded(modelLabel: string): void {
+  private markViewportLoaded(modelLabel: string, modelPath: string | null): void {
     this.viewportPanel.classList.add('is-loaded');
     this.emptyState.classList.add('is-hidden');
-    this.fileMeta.textContent = modelLabel;
+    this.renderFileMeta(modelLabel, modelPath ? `真实路径：${modelPath}` : '当前预览文件', modelPath);
+  }
+
+  private renderFileMeta(name: string, detail: string, modelPath: string | null): void {
+    this.fileMetaName.textContent = name;
+    this.fileMetaPath.textContent = detail;
+    this.fileMetaPath.title = modelPath ?? detail;
+    this.fileMetaCopyButton.classList.toggle('is-hidden', !modelPath);
+    this.fileMetaCopyButton.disabled = !modelPath;
     this.fileMeta.classList.remove('is-hidden');
+  }
+
+  private async copyActiveModelPath(): Promise<void> {
+    if (!this.activeModelPath || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(this.activeModelPath);
+      this.fileMetaPath.textContent = `已复制：${this.activeModelPath}`;
+    } catch {
+      this.fileMetaPath.textContent = `复制失败：${this.activeModelPath}`;
+    }
   }
 
   private syncChatContextSummary(): void {

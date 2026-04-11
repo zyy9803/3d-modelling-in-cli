@@ -97,7 +97,8 @@ describe('createChatStore', () => {
       jobId: 'job_001',
       baseModelId: 'model_001',
       newModelId: 'model_002',
-      modelLabel: 'part-edited.stl',
+      modelLabel: 'model_002_from_model_001.stl',
+      modelPath: '/tmp/models/model_002_from_model_001.stl',
     });
     store.applyEvent({
       type: 'model_generation_failed',
@@ -114,7 +115,7 @@ describe('createChatStore', () => {
     expect(state.messages.map((message) => message.text)).toEqual([
       'keep this conversation',
       '草稿脚本已就绪：/tmp/job_001/edit.py',
-      'New model generated: part-edited.stl',
+      '新 STL 已生成：/tmp/models/model_002_from_model_001.stl',
       'Model generation failed: generation failed',
     ]);
   });

@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -7,6 +7,7 @@ import { createModelRegistry } from './model-registry.js';
 describe('createModelRegistry', () => {
   it('registers imported and derived models with stable ids and storage paths', () => {
     const registry = createModelRegistry('C:/repo/artifacts/models');
+    const root = resolve('C:/repo/artifacts/models');
 
     const original = registry.registerImportedModel({
       sourceFileName: 'part.stl',
@@ -24,7 +25,7 @@ describe('createModelRegistry', () => {
       modelId: 'model_001',
       parentModelId: null,
       sourceFileName: 'part.stl',
-      storagePath: join('C:/repo/artifacts/models', 'model_001_original.stl'),
+      storagePath: join(root, 'model_001_original.stl'),
       sourceJobId: null,
       createdAt: '2026-04-10T00:00:00.000Z',
     });
@@ -32,8 +33,8 @@ describe('createModelRegistry', () => {
     expect(derived).toEqual({
       modelId: 'model_002',
       parentModelId: 'model_001',
-      sourceFileName: 'part-edited.stl',
-      storagePath: join('C:/repo/artifacts/models', 'model_002_from_model_001.stl'),
+      sourceFileName: 'model_002_from_model_001.stl',
+      storagePath: join(root, 'model_002_from_model_001.stl'),
       sourceJobId: 'job_001',
       createdAt: '2026-04-10T00:01:00.000Z',
     });

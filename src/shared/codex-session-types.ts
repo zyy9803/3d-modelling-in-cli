@@ -245,6 +245,7 @@ export type SessionStreamEvent =
       baseModelId: string;
       newModelId: string;
       modelLabel: string;
+      modelPath: string;
     }
   | {
       type: 'model_generation_failed';

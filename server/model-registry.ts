@@ -1,4 +1,4 @@
-import { extname, join, resolve } from 'node:path';
+import { basename, extname, join, resolve } from 'node:path';
 
 export type ModelRecord = {
   modelId: string;
@@ -62,11 +62,12 @@ export function createModelRegistry(modelsRoot: string): ModelRegistry {
       }
 
       const modelId = nextModelId();
+      const storagePath = join(root, `${modelId}_from_${input.parentModelId}.stl`);
       const record = buildDerivedModelRecord({
         modelId,
         parentModelId: input.parentModelId,
-        sourceFileName: input.sourceFileName,
-        storagePath: join(root, `${modelId}_from_${input.parentModelId}.stl`),
+        sourceFileName: basename(storagePath),
+        storagePath,
         sourceJobId: input.jobId,
         createdAt: input.createdAt ?? new Date(),
       });

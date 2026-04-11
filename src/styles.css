@@ -570,8 +570,9 @@ textarea {
 .file-meta {
   display: inline-flex;
   align-items: center;
-  min-height: 38px;
-  padding: 0 12px;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 12px;
   border-radius: 12px;
   border: 1px solid rgba(148, 163, 184, 0.18);
   background: rgba(148, 163, 184, 0.08);
@@ -580,8 +581,34 @@ textarea {
   flex: 1 1 auto;
   max-width: min(46vw, 560px);
   overflow: hidden;
+}
+
+.file-meta__text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  flex: 1 1 auto;
+}
+
+.file-meta__name,
+.file-meta__path {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.file-meta__name {
+  font-size: 0.88rem;
+}
+
+.file-meta__path {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.file-meta__copy {
+  flex: 0 0 auto;
 }
 
 .is-hidden {
@@ -617,6 +644,7 @@ textarea {
 }
 
 .chat-panel__header {
+  min-height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -897,7 +925,7 @@ textarea {
   cursor: pointer;
   display: flex;
   align-items: center;
-  min-height: 68px;
+  min-height: 56px;
   padding: 14px 16px;
   transition: background-color var(--transition-fast);
 }
@@ -1207,9 +1235,9 @@ textarea {
 }
 
 .chat-panel__composer-surface {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   gap: 12px;
   padding: 14px;
   border-radius: 18px;
@@ -1235,6 +1263,8 @@ textarea {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .chat-panel__input textarea {
@@ -1347,11 +1377,11 @@ textarea {
 
   .chat-panel__header-actions .button,
   .chat-panel__composer-actions .button {
-    width: 100%;
+    width: auto;
   }
 
-  .chat-panel__composer-surface {
-    grid-template-columns: 1fr;
+  .chat-panel__header-actions .button {
+    width: 100%;
   }
 
   .topbar__actions {

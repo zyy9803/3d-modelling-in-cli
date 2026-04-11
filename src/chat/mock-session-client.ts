@@ -226,7 +226,8 @@ export class MockSessionClient {
       jobId: 'job_mock_001',
       baseModelId: MOCK_MODEL_ID,
       newModelId: 'model_mock_002',
-      modelLabel: 'mock-preview-edited.stl',
+      modelLabel: 'model_mock_002_from_model_mock_001.stl',
+      modelPath: '/mock/artifacts/models/model_mock_002_from_model_mock_001.stl',
     });
   }
 

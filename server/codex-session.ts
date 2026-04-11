@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { access, copyFile, readFile, readdir, stat } from 'node:fs/promises';
 import { promisify } from 'node:util';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 import { buildCodexTurnPrompt } from '../src/shared/codex-turn-prompt.js';
 import type {
@@ -43,6 +43,9 @@ import {
   type PendingDecisionEnvelope,
 } from './codex-adapter.js';
 import type {
+  CommandExecutionRequestApprovalParams,
+  FileChangeRequestApprovalParams,
+  PermissionsRequestApprovalParams,
   ServerNotification,
   ServerRequest,
 } from './codex-app-server-protocol.js';
@@ -149,7 +152,7 @@ export class CodexSessionController {
           method: request.method,
           params: request.params,
         });
-        this.handleServerRequest(request);
+        void this.handleServerRequest(request);
       },
     });
 
@@ -564,7 +567,7 @@ export class CodexSessionController {
       baseInstructions:
         'You are a senior 3D modeling expert specializing in STL mesh editing and triangle-based geometry workflows. You may analyze meshes and draft Python mesh-edit scripts, but you must never overwrite the input model.',
       developerInstructions:
-        'Use the user prompt as the source of truth for model context and selection context. If an edit job is provided, treat its context as authoritative for file paths. In chat turns you may create or update edit.py only. Do not run the script, do not create result.json, and do not write any output STL. Do not execute shell commands or one-off inspection scripts in chat turns. Do not attempt web browsing or network access; if exact external dimensions are missing, ask the user to provide them. If context is insufficient, reply with a concise clarification request instead of continuing to explore. The user must explicitly trigger model generation later. Do not overwrite the base model.',
+        'Use the user prompt as the source of truth for model context and selection context. If an edit job is provided, treat its context as authoritative for file paths. In every chat turn, first read context.json and inspect the active STL from baseModelPath so you have a global understanding of the mesh before discussing or drafting modifications. Read-only shell commands and one-off local Python inspection scripts are allowed for STL parsing and geometry inspection only. In chat turns you may create or update edit.py only. Do not run the draft script, do not create result.json, and do not write any output STL. Do not install packages, do not attempt web browsing or network access, and do not overwrite the base model. If exact external dimensions are missing, ask the user to provide them. If context is insufficient, reply with a concise clarification request instead of continuing to explore. The user must explicitly trigger model generation later.',
       ephemeral: true,
       experimentalRawEvents: false,
       persistExtendedHistory: true,
@@ -660,7 +663,11 @@ export class CodexSessionController {
     }
   }
 
-  private handleServerRequest(request: ServerRequest): void {
+  private async handleServerRequest(request: ServerRequest): Promise<void> {
+    if (await this.autoApproveServerRequest(request)) {
+      return;
+    }
+
     const envelope = buildDecisionEnvelope(request);
     this.debugLogger.log('session.handle_server_request', {
       id: request.id,
@@ -697,6 +704,50 @@ export class CodexSessionController {
       type: 'status_changed',
       status: 'waiting_decision',
     });
+  }
+
+  private async autoApproveServerRequest(request: ServerRequest): Promise<boolean> {
+    switch (request.method) {
+      case 'item/commandExecution/requestApproval': {
+        const params = request.params as CommandExecutionRequestApprovalParams;
+        const decision =
+          params.availableDecisions?.find((value) => value === 'acceptForSession') ??
+          params.availableDecisions?.find((value) => value === 'accept') ??
+          'accept';
+        this.debugLogger.log('session.auto_approve.command_execution', {
+          requestId: request.id,
+          decision,
+          command: params.command ?? null,
+          cwd: params.cwd ?? null,
+        });
+        await this.gateway.respondToServerRequest(request.id, { decision });
+        return true;
+      }
+      case 'item/fileChange/requestApproval':
+        this.debugLogger.log('session.auto_approve.file_change', {
+          requestId: request.id,
+          grantRoot: (request.params as FileChangeRequestApprovalParams).grantRoot ?? null,
+        });
+        await this.gateway.respondToServerRequest(request.id, { decision: 'acceptForSession' });
+        return true;
+      case 'item/permissions/requestApproval': {
+        const params = request.params as PermissionsRequestApprovalParams;
+        this.debugLogger.log('session.auto_approve.permissions', {
+          requestId: request.id,
+          permissions: params.permissions,
+        });
+        await this.gateway.respondToServerRequest(request.id, {
+          permissions: {
+            network: params.permissions.network,
+            fileSystem: params.permissions.fileSystem,
+          },
+          scope: 'session',
+        });
+        return true;
+      }
+      default:
+        return false;
+    }
   }
 
   private applyStreamEventState(event: SessionStreamEvent): void {
@@ -766,7 +817,8 @@ export class CodexSessionController {
       jobId: job.jobId,
       baseModelId: job.baseModel.modelId,
       newModelId: job.outputModel.modelId,
-      modelLabel: job.outputModel.sourceFileName,
+      modelLabel: basename(job.outputModel.storagePath),
+      modelPath: job.outputModel.storagePath,
     });
   }
 

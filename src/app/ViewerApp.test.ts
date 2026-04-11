@@ -10,6 +10,7 @@ type FakeSessionClient = {
   importModelCalls: Array<{ sessionId: string; file: File }>;
   switchModelCalls: Array<{ sessionId: string; activeModelId: string | null; modelLabel: string | null }>;
   generateModelCalls: Array<{ sessionId: string }>;
+  sendMessageCalls: Array<Record<string, unknown>>;
   connect: (options: { onEvent: (event: SessionStreamEvent) => void }) => () => void;
   getStatus: () => Promise<{
     connectionStatus: 'starting' | 'connected' | 'disconnected' | 'failed';
@@ -25,7 +26,7 @@ type FakeSessionClient = {
       message: string | null;
     };
   }>;
-  sendMessage: () => Promise<void>;
+  sendMessage: (request: Record<string, unknown>) => Promise<void>;
   generateModel: (request: { sessionId: string }) => Promise<void>;
   sendDecision: () => Promise<void>;
   interrupt: () => Promise<void>;
@@ -131,7 +132,8 @@ describe('ViewerApp', () => {
       jobId: 'job_001',
       baseModelId: 'model_001',
       newModelId: 'model_002',
-      modelLabel: 'part-edited.stl',
+      modelLabel: 'model_002_from_model_001.stl',
+      modelPath: '/tmp/models/model_002_from_model_001.stl',
     });
 
     await flushMicrotasks();
@@ -140,10 +142,11 @@ describe('ViewerApp', () => {
     expect(viewport.loadedFiles).toHaveLength(1);
     expect(viewport.loadedFiles[0]?.name).toBe('model_002.stl');
     expect(store.getState().activeModelId).toBe('model_002');
-    expect(root.textContent).toContain('part-edited.stl');
+    expect(root.textContent).toContain('model_002_from_model_001.stl');
+    expect(root.querySelector('[data-copy-model-path]')?.classList.contains('is-hidden')).toBe(false);
     expect(store.getState().messages.map((message) => message.text)).toEqual([
       'keep this conversation',
-      'New model generated: part-edited.stl',
+      '新 STL 已生成：/tmp/models/model_002_from_model_001.stl',
     ]);
   });
 
@@ -168,7 +171,8 @@ describe('ViewerApp', () => {
       jobId: 'job_001',
       baseModelId: 'model_001',
       newModelId: 'model_002',
-      modelLabel: 'part-edited.stl',
+      modelLabel: 'model_002_from_model_001.stl',
+      modelPath: '/tmp/models/model_002_from_model_001.stl',
     });
 
     await flushMicrotasks();
@@ -178,7 +182,7 @@ describe('ViewerApp', () => {
     expect(store.getState().activeModelId).toBeNull();
     expect(store.getState().modelLabel).toBeNull();
     expect(store.getState().messages.map((message) => message.text)).toEqual([
-      'New model generated: part-edited.stl',
+      '新 STL 已生成：/tmp/models/model_002_from_model_001.stl',
       '错误：fetch failed',
     ]);
   });
@@ -204,7 +208,8 @@ describe('ViewerApp', () => {
       jobId: 'job_002',
       baseModelId: 'model_001',
       newModelId: 'model_003',
-      modelLabel: 'part-edited-2.stl',
+      modelLabel: 'model_003_from_model_001.stl',
+      modelPath: '/tmp/models/model_003_from_model_001.stl',
     });
 
     await flushMicrotasks();
@@ -214,7 +219,7 @@ describe('ViewerApp', () => {
     expect(store.getState().activeModelId).toBeNull();
     expect(store.getState().modelLabel).toBeNull();
     expect(store.getState().messages.map((message) => message.text)).toEqual([
-      'New model generated: part-edited-2.stl',
+      '新 STL 已生成：/tmp/models/model_003_from_model_001.stl',
       '错误：viewport failed',
     ]);
   });
@@ -251,7 +256,8 @@ describe('ViewerApp', () => {
       jobId: 'job_007',
       baseModelId: 'model_007',
       newModelId: 'model_008',
-      modelLabel: 'generated.stl',
+      modelLabel: 'model_008_from_model_007.stl',
+      modelPath: '/tmp/models/model_008_from_model_007.stl',
     });
 
     await flushMicrotasks();
@@ -279,7 +285,7 @@ describe('ViewerApp', () => {
         connectionMessage: 'connected',
         sessionStatus: 'idle',
         activeModelId: 'model_002',
-        modelLabel: 'generated.stl',
+        modelLabel: 'model_002_from_model_001.stl',
         draft: {
           status: 'empty',
           jobId: null,
@@ -301,7 +307,7 @@ describe('ViewerApp', () => {
 
     expect(sessionClient.fetchModelFileCalls).toEqual(['model_002']);
     expect(viewport.loadedFiles).toHaveLength(1);
-    expect(root.textContent).toContain('generated.stl');
+    expect(root.textContent).toContain('model_002_from_model_001.stl');
   });
 
   it('calls the explicit generate endpoint when the draft is ready and the button is clicked', async () => {
@@ -339,6 +345,71 @@ describe('ViewerApp', () => {
 
     expect(sessionClient.generateModelCalls).toEqual([{ sessionId: 'sess_main' }]);
   });
+
+  it('allows sending a message with no selected triangles and treats it as the whole STL', async () => {
+    const sessionClient = createFakeSessionClient({
+      status: {
+        connectionStatus: 'connected',
+        connectionMessage: 'connected',
+        sessionStatus: 'idle',
+        activeModelId: 'model_001',
+        modelLabel: 'part.stl',
+        draft: {
+          status: 'empty',
+          jobId: null,
+          baseModelId: null,
+          scriptPath: null,
+          message: null,
+        },
+      },
+    });
+    const root = document.createElement('div');
+
+    new ViewerApp(root, {
+      sessionClient,
+      createViewport: () =>
+        createFakeViewport({
+          buildChatPayload: () => ({
+            selectionContext: {
+              mode: 'click',
+              triangleIds: [],
+              components: [],
+            },
+            viewContext: {
+              cameraPosition: [0, 0, 5],
+              target: [0, 0, 0],
+              up: [0, 1, 0],
+              fov: 50,
+              viewDirection: [0, 0, -1],
+              dominantOrientation: '+X',
+              viewportSize: [800, 600],
+            },
+          }),
+        }),
+    });
+
+    await flushMicrotasks();
+
+    const input = root.querySelector<HTMLTextAreaElement>('[data-chat-input="true"]');
+    expect(input).not.toBeNull();
+    input!.value = 'edit whole model';
+    input!.dispatchEvent(new Event('input'));
+    root.querySelector<HTMLFormElement>('[data-chat-form="true"]')?.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    );
+
+    await flushMicrotasks();
+
+    expect(sessionClient.sendMessageCalls).toHaveLength(1);
+    expect(sessionClient.sendMessageCalls[0]).toMatchObject({
+      sessionId: 'sess_main',
+      activeModelId: 'model_001',
+      selectionContext: {
+        triangleIds: [],
+      },
+    });
+    expect(root.textContent).not.toContain('请先选中需要交给 Codex 的三角面');
+  });
 });
 
 function createFakeSessionClient(
@@ -352,6 +423,7 @@ function createFakeSessionClient(
     importModelCalls: [] as Array<{ sessionId: string; file: File }>,
     switchModelCalls: [] as Array<{ sessionId: string; activeModelId: string | null; modelLabel: string | null }>,
     generateModelCalls: [] as Array<{ sessionId: string }>,
+    sendMessageCalls: [] as Array<Record<string, unknown>>,
   };
 
   return {
@@ -372,6 +444,9 @@ function createFakeSessionClient(
     },
     get generateModelCalls() {
       return state.generateModelCalls;
+    },
+    get sendMessageCalls() {
+      return state.sendMessageCalls;
     },
     connect(options) {
       state.onEvent = options.onEvent;
@@ -395,7 +470,9 @@ function createFakeSessionClient(
         },
       };
     },
-    async sendMessage() {},
+    async sendMessage(request) {
+      state.sendMessageCalls.push(request);
+    },
     async generateModel(request) {
       state.generateModelCalls.push(request);
     },
@@ -423,7 +500,7 @@ function createFakeSessionClient(
 }
 
 function createFakeViewport(
-  overrides: Partial<Pick<FakeViewport, 'loadFile'>> = {},
+  overrides: Partial<Pick<FakeViewport, 'loadFile' | 'buildChatPayload'>> = {},
 ): FakeViewport {
   const state = {
     mounted: false,
@@ -453,6 +530,9 @@ function createFakeViewport(
       return null;
     },
     buildChatPayload() {
+      if (overrides.buildChatPayload) {
+        return overrides.buildChatPayload();
+      }
       return {
         selectionContext: {
           mode: 'click',
