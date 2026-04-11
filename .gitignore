@@ -6,3 +6,4 @@ coverage/
 .playwright-mcp/
 .codex
 .cursor
+artifacts/

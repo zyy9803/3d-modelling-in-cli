@@ -13,7 +13,13 @@ describe('createChatStore', () => {
         activityId: 'activity-1',
         activityKind: 'command_execution',
         title: '执行命令',
-        detail: 'npm test -- src/chat/chat-store.test.ts',
+        fields: [
+          {
+            label: '命令',
+            value: 'npm test -- src/chat/chat-store.test.ts',
+          },
+        ],
+        bodyFormat: 'code',
       },
       {
         type: 'activity_delta',
@@ -36,8 +42,14 @@ describe('createChatStore', () => {
         id: 'activity-1',
         activityKind: 'command_execution',
         title: '执行命令',
-        detail: 'npm test -- src/chat/chat-store.test.ts',
+        fields: [
+          {
+            label: '命令',
+            value: 'npm test -- src/chat/chat-store.test.ts',
+          },
+        ],
         text: '正在运行测试...',
+        bodyFormat: 'code',
         status: 'completed',
       },
     ]);

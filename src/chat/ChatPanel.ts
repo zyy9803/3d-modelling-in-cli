@@ -1,5 +1,5 @@
 import type { ChatActivity, ChatMessage, ChatStoreState, ChatTimelineEntry } from './chat-store';
-import type { SessionDecisionCard } from '../shared/codex-session-types';
+import type { SessionDecisionCard, SessionInfoField } from '../shared/codex-session-types';
 
 export type ChatPanelHandlers = {
   onSend: (text: string) => void | Promise<void>;
@@ -81,9 +81,6 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
   const messages = document.createElement('section');
   messages.className = 'chat-panel__messages';
 
-  const decisionHost = document.createElement('section');
-  decisionHost.className = 'chat-panel__decision';
-
   const composer = document.createElement('form');
   composer.className = 'chat-panel__input';
   composer.dataset.chatForm = 'true';
@@ -111,7 +108,7 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
   composerSurface.append(input, composerActions);
   composer.append(composerSurface);
 
-  root.append(header, messages, decisionHost, composer);
+  root.append(header, messages, composer);
 
   clearButton.addEventListener('click', () => {
     void handlers.onClearSession();
@@ -142,10 +139,9 @@ export function createChatPanel(handlers: ChatPanelHandlers): ChatPanel {
   function render(state: ChatPanelState): void {
     renderConnectionStatus(statusLight, connectionText, state.connectionStatus, state.connectionMessage);
     sessionStatusText.textContent = `会话状态：${formatSessionStatus(state.sessionStatus)}`;
-    messages.innerHTML = renderMessageList(state.messages);
+    messages.innerHTML = renderMessageList(filterVisibleTimelineEntries(state), state.pendingDecision, openCards);
     bindCollapsibleCards(messages, openCards);
-    decisionHost.innerHTML = state.pendingDecision ? renderDecisionCardMarkup(state.pendingDecision) : '';
-    bindDecisionCard(decisionHost, handlers);
+    bindDecisionCard(messages, handlers);
     root.dataset.sessionStatus = state.sessionStatus;
     root.dataset.connectionStatus = state.connectionStatus;
     interruptButton.disabled = state.sessionStatus !== 'streaming';
@@ -173,23 +169,30 @@ function syncComposerHeight(input: HTMLTextAreaElement): void {
 }
 
 function bindCollapsibleCards(host: HTMLElement, openCards: Set<string>): void {
-  host.querySelectorAll<HTMLDetailsElement>('[data-collapsible-card="true"]').forEach((details) => {
-    const messageId = details.dataset.messageId;
+  host.querySelectorAll<HTMLElement>('[data-collapsible-card="true"]').forEach((card) => {
+    const messageId = card.dataset.messageId;
     if (!messageId) {
       return;
     }
 
-    if (openCards.has(messageId)) {
-      details.open = true;
+    const toggleButton = card.querySelector<HTMLButtonElement>('[data-collapsible-toggle="true"]');
+    const body = card.querySelector<HTMLElement>('[data-collapsible-body="true"]');
+    if (!toggleButton || !body) {
+      return;
     }
 
-    details.addEventListener('toggle', () => {
-      if (details.open) {
-        openCards.add(messageId);
-        return;
-      }
+    toggleButton.addEventListener('click', () => {
+      const nextOpen = card.dataset.collapsibleOpen !== 'true';
+      card.dataset.collapsibleOpen = nextOpen ? 'true' : 'false';
+      card.classList.toggle('is-open', nextOpen);
+      toggleButton.setAttribute('aria-expanded', String(nextOpen));
+      body.hidden = !nextOpen;
 
-      openCards.delete(messageId);
+      if (nextOpen) {
+        openCards.add(messageId);
+      } else {
+        openCards.delete(messageId);
+      }
     });
   });
 }
@@ -205,15 +208,12 @@ function renderConnectionStatus(
   connectionText.dataset.codexConnectionMessage = 'true';
 }
 
-function renderMessageList(messages: ChatTimelineEntry[]): string {
+function renderMessageList(
+  messages: ChatTimelineEntry[],
+  pendingDecision: SessionDecisionCard | null,
+  openCards: Set<string>,
+): string {
   const visibleMessages = messages.filter((message) => {
-    if (
-      message.kind === 'activity' &&
-      (message.activityKind === 'command_execution' || message.activityKind === 'tool_call')
-    ) {
-      return false;
-    }
-
     if (message.kind !== 'message' || message.role !== 'reasoning') {
       return true;
     }
@@ -221,7 +221,10 @@ function renderMessageList(messages: ChatTimelineEntry[]): string {
     return message.text.trim().length > 0;
   });
 
-  if (visibleMessages.length === 0) {
+  const timelineMarkup = visibleMessages.map((message) => renderTimelineEntry(message, openCards)).join('');
+  const decisionMarkup = pendingDecision ? renderDecisionCardMarkup(pendingDecision) : '';
+
+  if (timelineMarkup.length === 0 && decisionMarkup.length === 0) {
     return `
       <div class="chat-panel__empty">
         <strong>等待第一条指令</strong>
@@ -230,14 +233,14 @@ function renderMessageList(messages: ChatTimelineEntry[]): string {
     `;
   }
 
-  return visibleMessages.map((message) => renderTimelineEntry(message)).join('');
+  return `${timelineMarkup}${decisionMarkup}`;
 }
 
-function renderTimelineEntry(message: ChatTimelineEntry): string {
-  return message.kind === 'activity' ? renderActivity(message) : renderMessage(message);
+function renderTimelineEntry(message: ChatTimelineEntry, openCards: Set<string>): string {
+  return message.kind === 'activity' ? renderActivity(message, openCards) : renderMessage(message, openCards);
 }
 
-function renderMessage(message: ChatMessage): string {
+function renderMessage(message: ChatMessage, openCards: Set<string>): string {
   const title = message.title ? `<span class="chat-message__title">${escapeHtml(message.title)}</span>` : '';
   const status = message.status
     ? `<span class="chat-message__status">${formatEntryStatus(message.status)}</span>`
@@ -247,6 +250,7 @@ function renderMessage(message: ChatMessage): string {
     return renderCollapsibleCard({
       id: message.id,
       className: `chat-message chat-message--${message.role}`,
+      isOpen: openCards.has(message.id),
       roleLabel: labelForRole(message.role),
       title,
       status,
@@ -265,16 +269,14 @@ function renderMessage(message: ChatMessage): string {
   `;
 }
 
-function renderActivity(activity: ChatActivity): string {
+function renderActivity(activity: ChatActivity, openCards: Set<string>): string {
   const title = `<span class="chat-message__title">${escapeHtml(activity.title)}</span>`;
   const status = activity.status
     ? `<span class="chat-message__status">${formatEntryStatus(activity.status)}</span>`
     : '';
-  const detail = activity.detail
-    ? `<div class="chat-message__detail">${escapeHtml(activity.detail)}</div>`
-    : '';
-  const text = activity.text.trim().length > 0 ? `<div class="chat-message__text">${escapeHtml(activity.text)}</div>` : '';
-  const body = `${detail}${text}`.trim();
+  const fields = renderFactGrid('chat-message', activity.fields);
+  const text = activity.text.trim().length > 0 ? renderActivityBody(activity.text, activity.bodyFormat) : '';
+  const body = `${fields}${text}`.trim();
 
   if (body.length === 0) {
     return `
@@ -293,6 +295,7 @@ function renderActivity(activity: ChatActivity): string {
   return renderCollapsibleCard({
     id: activity.id,
     className: `chat-message chat-message--activity chat-message--activity-${escapeHtml(activity.activityKind)}`,
+    isOpen: openCards.has(activity.id),
     roleLabel: labelForActivityKind(activity.activityKind),
     title,
     status,
@@ -303,34 +306,41 @@ function renderActivity(activity: ChatActivity): string {
 function renderCollapsibleCard(options: {
   id: string;
   className: string;
+  isOpen: boolean;
   roleLabel: string;
   title: string;
   status: string;
   body: string;
 }): string {
   return `
-    <details
-      class="${options.className} chat-message--collapsible"
+    <article
+      class="${options.className} chat-message--collapsible${options.isOpen ? ' is-open' : ''}"
       data-message-id="${escapeHtml(options.id)}"
       data-collapsible-card="true"
+      data-collapsible-open="${options.isOpen ? 'true' : 'false'}"
     >
-      <summary class="chat-message__summary">
-        <div class="chat-message__header">
+      <button
+        type="button"
+        class="chat-message__summary"
+        data-collapsible-toggle="true"
+        aria-expanded="${options.isOpen ? 'true' : 'false'}"
+      >
+        <span class="chat-message__summary-content">
           <span class="chat-message__role">${escapeHtml(options.roleLabel)}</span>
-          <div class="chat-message__meta">${options.title}${options.status}</div>
-        </div>
-      </summary>
-      <div class="chat-message__body">
+          <span class="chat-message__meta">${options.title}${options.status}</span>
+        </span>
+      </button>
+      <div class="chat-message__body" data-collapsible-body="true"${options.isOpen ? '' : ' hidden'}>
         <div class="chat-message__body-scroll">
           ${options.body}
         </div>
       </div>
-    </details>
+    </article>
   `;
 }
 
 function renderDecisionCardMarkup(decision: SessionDecisionCard): string {
-  const detailMarkup = renderDecisionDetails(decision);
+  const contextMarkup = renderFactGrid('chat-decision', getDecisionInfoFields(decision));
   const questions = decision.questions
     .map((question) => {
       const optionButtons = question.options.length > 0
@@ -379,7 +389,7 @@ function renderDecisionCardMarkup(decision: SessionDecisionCard): string {
         <h3>${escapeHtml(decision.title)}</h3>
         <p>${escapeHtml(decision.body)}</p>
       </header>
-      ${detailMarkup}
+      ${contextMarkup}
       <div class="chat-decision__questions">${questions}</div>
       <footer class="chat-decision__footer">
         <button class="button button--primary" type="button" data-decision-submit="true">提交决策</button>
@@ -388,28 +398,45 @@ function renderDecisionCardMarkup(decision: SessionDecisionCard): string {
   `;
 }
 
-function renderDecisionDetails(decision: SessionDecisionCard): string {
+function renderActivityBody(text: string, bodyFormat: ChatActivity['bodyFormat']): string {
+  return bodyFormat === 'code'
+    ? `<pre class="chat-message__code">${escapeHtml(text)}</pre>`
+    : `<div class="chat-message__text">${escapeHtml(text)}</div>`;
+}
+
+function renderFactGrid(blockName: 'chat-message' | 'chat-decision', fields: SessionInfoField[]): string {
+  if (fields.length === 0) {
+    return '';
+  }
+
+  const content = fields
+    .map(
+      (field) => `
+        <div class="${blockName}__fact">
+          <dt class="${blockName}__fact-label">${escapeHtml(field.label)}</dt>
+          <dd class="${blockName}__fact-value">${escapeHtml(field.value)}</dd>
+        </div>
+      `,
+    )
+    .join('');
+
+  return `<dl class="${blockName}__facts">${content}</dl>`;
+}
+
+function getDecisionInfoFields(decision: SessionDecisionCard): SessionInfoField[] {
   switch (decision.kind) {
     case 'command_execution':
-      return `
-        <div class="chat-decision__details">
-          ${decision.command ? `<div><strong>Command</strong><pre>${escapeHtml(decision.command)}</pre></div>` : ''}
-          ${decision.cwd ? `<div><strong>Cwd</strong><pre>${escapeHtml(decision.cwd)}</pre></div>` : ''}
-        </div>
-      `;
+      return compactInfoFields([
+        ['命令', decision.command],
+        ['目录', decision.cwd],
+      ]);
     case 'file_change':
-      return decision.grantRoot
-        ? `<div class="chat-decision__details"><div><strong>Grant Root</strong><pre>${escapeHtml(decision.grantRoot)}</pre></div></div>`
-        : '';
+      return compactInfoFields([['授权目录', decision.grantRoot]]);
     case 'permissions':
-      return `
-        <div class="chat-decision__details">
-          <div><strong>Permissions</strong><pre>${escapeHtml(decision.permissionsSummary)}</pre></div>
-        </div>
-      `;
+      return compactInfoFields([['权限', decision.permissionsSummary]]);
     case 'user_input':
     default:
-      return '';
+      return [];
   }
 }
 
@@ -545,6 +572,21 @@ function formatConnectionStatus(
   }
 }
 
+function filterVisibleTimelineEntries(state: ChatPanelState): ChatTimelineEntry[] {
+  return state.messages.filter((message) => {
+    if (
+      message.kind === 'activity' &&
+      message.activityKind === 'command_execution' &&
+      message.status === 'streaming' &&
+      state.pendingDecision?.kind === 'command_execution'
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 function labelForRole(role: ChatMessage['role']): string {
   switch (role) {
     case 'user':
@@ -573,6 +615,13 @@ function labelForActivityKind(kind: ChatActivity['activityKind']): string {
     default:
       return kind;
   }
+}
+
+function compactInfoFields(entries: Array<[string, string | null | undefined]>): SessionInfoField[] {
+  return entries.flatMap(([label, value]) => {
+    const normalizedValue = value?.trim();
+    return normalizedValue ? [{ label, value: normalizedValue }] : [];
+  });
 }
 
 function escapeHtml(value: string): string {

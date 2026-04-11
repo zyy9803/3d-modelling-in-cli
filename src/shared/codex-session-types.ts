@@ -98,6 +98,13 @@ export type DecisionQuestion = {
 
 export type SessionActivityKind = 'command_execution' | 'tool_call' | 'plan' | 'approval';
 
+export type SessionInfoField = {
+  label: string;
+  value: string;
+};
+
+export type SessionContentFormat = 'plain' | 'code';
+
 export type SessionDecisionCard =
   | {
       id: string;
@@ -175,8 +182,9 @@ export type SessionStreamEvent =
       activityId: string;
       activityKind: SessionActivityKind;
       title: string;
-      detail?: string;
+      fields?: SessionInfoField[];
       text?: string;
+      bodyFormat?: SessionContentFormat;
     }
   | {
       type: 'activity_delta';
@@ -187,9 +195,10 @@ export type SessionStreamEvent =
   | {
       type: 'activity_completed';
       activityId: string;
-      detail?: string;
+      fields?: SessionInfoField[];
       text?: string;
       replace?: boolean;
+      bodyFormat?: SessionContentFormat;
     }
   | {
       type: 'needs_decision';

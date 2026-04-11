@@ -59,8 +59,14 @@ describe('createChatPanel', () => {
           id: 'activity-1',
           activityKind: 'plan',
           title: 'Plan Update',
-          detail: 'Plan step 1',
+          fields: [
+            {
+              label: '状态',
+              value: 'in_progress',
+            },
+          ],
           text: 'Generate a revised mesh-edit approach.',
+          bodyFormat: 'plain',
           status: 'completed',
         },
       ],
@@ -68,10 +74,11 @@ describe('createChatPanel', () => {
 
     const details = panel.element.querySelector<HTMLElement>('[data-collapsible-card="true"]');
     expect(details).not.toBeNull();
-    expect(details?.hasAttribute('open')).toBe(false);
-    expect(details?.querySelector('summary')?.textContent).toContain('Plan Update');
+    expect(details?.dataset.collapsibleOpen).toBe('false');
+    expect(details?.querySelector('[data-collapsible-toggle="true"]')?.textContent).toContain('Plan Update');
     expect(details?.querySelector('.chat-message__body-scroll')).not.toBeNull();
-    expect(details?.textContent).toContain('Plan step 1');
+    expect(details?.textContent).toContain('状态');
+    expect(details?.textContent).toContain('in_progress');
     expect(details?.textContent).toContain('Generate a revised mesh-edit approach.');
   });
 
@@ -94,8 +101,8 @@ describe('createChatPanel', () => {
 
     const details = panel.element.querySelector<HTMLElement>('[data-collapsible-card="true"]');
     expect(details).not.toBeNull();
-    expect(details?.hasAttribute('open')).toBe(false);
-    expect(details?.querySelector('summary')?.textContent).toContain('Thinking');
+    expect(details?.dataset.collapsibleOpen).toBe('false');
+    expect(details?.querySelector('[data-collapsible-toggle="true"]')?.textContent).toContain('Thinking');
     expect(details?.querySelector('.chat-message__body-scroll')).not.toBeNull();
     expect(details?.textContent).toContain('Inspect the current selection before deciding the next edit step.');
   });
@@ -118,10 +125,9 @@ describe('createChatPanel', () => {
 
     panel.render(initialState);
 
-    const firstDetails = panel.element.querySelector<HTMLDetailsElement>('[data-collapsible-card="true"]');
-    expect(firstDetails).not.toBeNull();
-    firstDetails!.open = true;
-    firstDetails!.dispatchEvent(new Event('toggle'));
+    const firstCard = panel.element.querySelector<HTMLElement>('[data-collapsible-card="true"]');
+    expect(firstCard).not.toBeNull();
+    firstCard?.querySelector<HTMLButtonElement>('[data-collapsible-toggle="true"]')?.click();
 
     panel.render({
       ...initialState,
@@ -144,11 +150,12 @@ describe('createChatPanel', () => {
       ],
     });
 
-    const rerenderedDetails = panel.element.querySelector<HTMLDetailsElement>('[data-collapsible-card="true"]');
-    expect(rerenderedDetails?.open).toBe(true);
+    const rerenderedCard = panel.element.querySelector<HTMLElement>('[data-collapsible-card="true"]');
+    expect(rerenderedCard?.dataset.collapsibleOpen).toBe('true');
+    expect(rerenderedCard?.querySelector<HTMLElement>('[data-collapsible-body="true"]')?.hidden).toBe(false);
   });
 
-  it('does not render command and tool activity cards in the main timeline', () => {
+  it('renders command and tool activity cards in the main timeline', () => {
     const panel = createChatPanel(noopHandlers);
 
     panel.render({
@@ -159,8 +166,18 @@ describe('createChatPanel', () => {
           id: 'command-1',
           activityKind: 'command_execution',
           title: 'Run command',
-          detail: 'python edit.py',
+          fields: [
+            {
+              label: '命令',
+              value: 'python edit.py',
+            },
+            {
+              label: '目录',
+              value: '/tmp/workspace',
+            },
+          ],
           text: 'running',
+          bodyFormat: 'code',
           status: 'streaming',
         },
         {
@@ -168,8 +185,14 @@ describe('createChatPanel', () => {
           id: 'tool-1',
           activityKind: 'tool_call',
           title: 'Read file',
-          detail: 'context.json',
-          text: 'reading',
+          fields: [
+            {
+              label: '工具',
+              value: 'read_file',
+            },
+          ],
+          text: '参数\ncontext.json',
+          bodyFormat: 'code',
           status: 'completed',
         },
         {
@@ -183,7 +206,67 @@ describe('createChatPanel', () => {
     });
 
     expect(panel.element.textContent).toContain('final reply');
+    expect(panel.element.textContent).toContain('Run command');
+    expect(panel.element.textContent).toContain('Read file');
+    expect(panel.element.textContent).toContain('python edit.py');
+    expect(panel.element.textContent).toContain('/tmp/workspace');
+    expect(panel.element.textContent).toContain('context.json');
+  });
+
+  it('hides streaming command execution cards when command approval is pending', () => {
+    const panel = createChatPanel(noopHandlers);
+
+    panel.render({
+      ...createBaseState(),
+      sessionStatus: 'waiting_decision',
+      pendingDecision: {
+        id: 'decision-1',
+        kind: 'command_execution',
+        title: '命令执行审批',
+        body: '是否允许继续执行命令？',
+        command: 'python edit.py',
+        cwd: '/tmp/workspace',
+        questions: [],
+      },
+      messages: [
+        {
+          kind: 'activity',
+          id: 'command-1',
+          activityKind: 'command_execution',
+          title: 'Run command',
+          fields: [
+            {
+              label: '命令',
+              value: 'python edit.py',
+            },
+          ],
+          text: 'running',
+          bodyFormat: 'code',
+          status: 'streaming',
+        },
+        {
+          kind: 'activity',
+          id: 'tool-1',
+          activityKind: 'tool_call',
+          title: 'Read file',
+          fields: [
+            {
+              label: '工具',
+              value: 'read_file',
+            },
+          ],
+          text: '参数\ncontext.json',
+          bodyFormat: 'code',
+          status: 'streaming',
+        },
+      ],
+    });
+
     expect(panel.element.textContent).not.toContain('Run command');
-    expect(panel.element.textContent).not.toContain('Read file');
+    expect(panel.element.textContent).toContain('Read file');
+    expect(panel.element.querySelector('[data-decision-card]')?.textContent).toContain('命令执行审批');
+    expect(panel.element.querySelector('[data-decision-card]')?.textContent).toContain('python edit.py');
+    expect(panel.element.querySelector('[data-decision-card]')?.textContent).toContain('/tmp/workspace');
+    expect(panel.element.querySelector('.chat-panel__messages [data-decision-card]')).not.toBeNull();
   });
 });

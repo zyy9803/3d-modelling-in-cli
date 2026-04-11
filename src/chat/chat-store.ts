@@ -2,8 +2,10 @@ import type {
   ChatSessionStatus,
   CodexConnectionStatus,
   DecisionQuestion,
+  SessionContentFormat,
   SessionActivityKind,
   SessionDecisionCard,
+  SessionInfoField,
   SessionStreamEvent,
 } from '../shared/codex-session-types';
 
@@ -25,8 +27,9 @@ export type ChatActivity = {
   id: string;
   activityKind: SessionActivityKind;
   title: string;
-  detail?: string;
+  fields: SessionInfoField[];
   text: string;
+  bodyFormat: SessionContentFormat;
   status: ChatEntryStatus | null;
 };
 
@@ -194,7 +197,8 @@ export function createChatStore(initialState: Partial<ChatStoreState> = {}): Cha
           if (existing) {
             existing.activityKind = event.activityKind;
             existing.title = event.title;
-            existing.detail = event.detail;
+            existing.fields = cloneInfoFields(event.fields);
+            existing.bodyFormat = event.bodyFormat ?? defaultActivityBodyFormat(event.activityKind);
             if (typeof event.text === 'string') {
               existing.text = event.text;
             }
@@ -205,8 +209,9 @@ export function createChatStore(initialState: Partial<ChatStoreState> = {}): Cha
               id: event.activityId,
               activityKind: event.activityKind,
               title: event.title,
-              detail: event.detail,
+              fields: cloneInfoFields(event.fields),
               text: event.text ?? '',
+              bodyFormat: event.bodyFormat ?? defaultActivityBodyFormat(event.activityKind),
               status: 'streaming',
             });
           }
@@ -224,7 +229,9 @@ export function createChatStore(initialState: Partial<ChatStoreState> = {}): Cha
               id: event.activityId,
               activityKind: 'tool_call',
               title: 'Agent Activity',
+              fields: [],
               text: event.delta,
+              bodyFormat: 'plain',
               status: 'streaming',
             });
           }
@@ -233,11 +240,14 @@ export function createChatStore(initialState: Partial<ChatStoreState> = {}): Cha
         case 'activity_completed': {
           const target = findActivity(event.activityId);
           if (target) {
-            if (typeof event.detail === 'string') {
-              target.detail = event.detail;
+            if (Array.isArray(event.fields)) {
+              target.fields = cloneInfoFields(event.fields);
             }
             if (typeof event.text === 'string') {
               target.text = event.replace ? event.text : `${target.text}${event.text}`;
+            }
+            if (event.bodyFormat) {
+              target.bodyFormat = event.bodyFormat;
             }
             target.status = 'completed';
           }
@@ -366,7 +376,10 @@ function cloneMessage(message: ChatMessage): ChatMessage {
 }
 
 function cloneActivity(message: ChatActivity): ChatActivity {
-  return { ...message };
+  return {
+    ...message,
+    fields: cloneInfoFields(message.fields),
+  };
 }
 
 function cloneDecision(decision: SessionDecisionCard): SessionDecisionCard {
@@ -381,6 +394,14 @@ function cloneQuestion(question: DecisionQuestion): DecisionQuestion {
     ...question,
     options: question.options.map((option) => ({ ...option })),
   };
+}
+
+function cloneInfoFields(fields: SessionInfoField[] | undefined): SessionInfoField[] {
+  return (fields ?? []).map((field) => ({ ...field }));
+}
+
+function defaultActivityBodyFormat(activityKind: SessionActivityKind): SessionContentFormat {
+  return activityKind === 'command_execution' || activityKind === 'tool_call' ? 'code' : 'plain';
 }
 
 function nextStableId(): string {

@@ -21,8 +21,10 @@ import type {
 import type {
   ChatSessionStatus,
   DecisionOption,
+  SessionContentFormat,
   SessionActivityKind,
   SessionDecisionCard,
+  SessionInfoField,
   SessionStreamEvent,
 } from '../src/shared/codex-session-types.js';
 
@@ -155,8 +157,9 @@ export function buildDecisionActivityEvents(activityId: string, card: SessionDec
       activityId,
       activityKind: 'approval',
       title: card.title,
-      detail: buildDecisionActivityDetail(card),
+      fields: buildDecisionActivityFields(card),
       text: card.body,
+      bodyFormat: 'plain',
     },
     {
       type: 'activity_completed',
@@ -213,8 +216,9 @@ function normalizeStartedItem(item: ThreadItem): SessionStreamEvent[] {
         activityId: item.id,
         activityKind: toActivityKind(item.type),
         title: extractActivityTitle(item),
-        detail: extractActivityDetail(item),
+        fields: extractActivityFields(item),
         text: extractActivityText(item) || undefined,
+        bodyFormat: extractActivityBodyFormat(item),
       },
     ];
   }
@@ -229,8 +233,9 @@ function normalizeCompletedItem(item: ThreadItem): SessionStreamEvent[] {
       {
         type: 'activity_completed',
         activityId: item.id,
-        detail: extractActivityDetail(item),
+        fields: extractActivityFields(item),
         ...(finalText ? { text: finalText, replace: true } : {}),
+        bodyFormat: extractActivityBodyFormat(item),
       },
     ];
   }
@@ -551,63 +556,79 @@ function extractActivityTitle(item: Extract<ThreadItem, { type: 'commandExecutio
   }
 }
 
-function extractActivityDetail(item: Extract<ThreadItem, { type: 'commandExecution' | 'toolCall' | 'plan' }>): string {
+function extractActivityFields(
+  item: Extract<ThreadItem, { type: 'commandExecution' | 'toolCall' | 'plan' }>,
+): SessionInfoField[] {
   switch (item.type) {
     case 'commandExecution':
-      return [
-        item.command ? `Command: ${item.command}` : '',
-        item.cwd ? `Cwd: ${item.cwd}` : '',
-        item.status ? `Status: ${item.status}` : '',
-      ]
-        .filter(Boolean)
-        .join('\n');
+      return buildInfoFields([
+        ['命令', item.command],
+        ['目录', item.cwd],
+        ['状态', item.status],
+        ['退出码', formatExitCodeValue(item.exitCode)],
+      ]);
     case 'toolCall':
-      return [
-        item.toolName ? `Tool: ${item.toolName}` : '',
-        item.arguments ? `Arguments: ${stringifyActivityValue(item.arguments)}` : '',
-        item.status ? `Status: ${item.status}` : '',
-      ]
-        .filter(Boolean)
-        .join('\n');
+      return buildInfoFields([
+        ['工具', item.toolName],
+        ['状态', item.status],
+      ]);
     case 'plan':
-      return item.status ? `Status: ${item.status}` : '';
+      return buildInfoFields([['状态', item.status]]);
     default:
-      return '';
+      return [];
   }
 }
 
 function extractActivityText(item: Extract<ThreadItem, { type: 'commandExecution' | 'toolCall' | 'plan' }>): string {
   switch (item.type) {
     case 'commandExecution':
-      return [item.text, item.stdout, item.stderr, stringifyActivityValue(item.output), formatExitCode(item.exitCode)]
+      return [item.text, item.stdout, item.stderr, stringifyActivityValue(item.output)]
         .filter(Boolean)
         .join('\n')
         .trim();
     case 'toolCall':
-      return [item.text, stringifyActivityValue(item.result)].filter(Boolean).join('\n').trim();
-    case 'plan':
-      return [item.text, stringifyActivityValue(item.content), stringifyActivityValue(item.steps)]
+      return [
+        item.text,
+        formatNamedBlock('参数', stringifyActivityValue(item.arguments)),
+        formatNamedBlock('结果', stringifyActivityValue(item.result)),
+      ]
         .filter(Boolean)
-        .join('\n')
+        .join('\n\n')
+        .trim();
+    case 'plan':
+      return [
+        item.text,
+        formatNamedBlock('内容', stringifyActivityValue(item.content)),
+        formatNamedBlock('步骤', stringifyActivityValue(item.steps)),
+      ]
+        .filter(Boolean)
+        .join('\n\n')
         .trim();
     default:
       return '';
   }
 }
 
-function buildDecisionActivityDetail(card: SessionDecisionCard): string {
+function extractActivityBodyFormat(
+  item: Extract<ThreadItem, { type: 'commandExecution' | 'toolCall' | 'plan' }>,
+): SessionContentFormat {
+  return item.type === 'plan' ? 'plain' : 'code';
+}
+
+function buildDecisionActivityFields(card: SessionDecisionCard): SessionInfoField[] {
   switch (card.kind) {
     case 'command_execution':
-      return [card.command ? `Command: ${card.command}` : '', card.cwd ? `Cwd: ${card.cwd}` : '']
-        .filter(Boolean)
-        .join('\n');
+      return buildInfoFields([
+        ['命令', card.command],
+        ['目录', card.cwd],
+      ]);
     case 'file_change':
-      return card.grantRoot ? `Grant Root: ${card.grantRoot}` : '';
+      return buildInfoFields([['授权目录', card.grantRoot]]);
     case 'permissions':
-      return `Permissions: ${card.permissionsSummary}`;
+      return buildInfoFields([['权限', card.permissionsSummary]]);
     case 'user_input':
     default:
-      return '';
+      return [];
   }
 }
 
@@ -654,12 +675,23 @@ function stringifyActivityValue(value: unknown): string {
   }
 
   try {
-    return JSON.stringify(value);
+    return JSON.stringify(value, null, 2);
   } catch {
     return '';
   }
 }
 
-function formatExitCode(exitCode: number | null | undefined): string {
-  return typeof exitCode === 'number' ? `Exit Code: ${exitCode}` : '';
+function buildInfoFields(entries: Array<[string, string | null | undefined]>): SessionInfoField[] {
+  return entries.flatMap(([label, value]) => {
+    const normalizedValue = value?.trim();
+    return normalizedValue ? [{ label, value: normalizedValue }] : [];
+  });
+}
+
+function formatNamedBlock(label: string, value: string): string {
+  return value ? `${label}\n${value}` : '';
+}
+
+function formatExitCodeValue(exitCode: number | null | undefined): string | null {
+  return typeof exitCode === 'number' ? String(exitCode) : null;
 }
