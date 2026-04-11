@@ -1073,15 +1073,21 @@ function stripAnsi(value: string): string {
 
 function buildDraftScriptArgs(scriptSource: string, job: ExecutionJobRecord): string[] {
   const args: string[] = [];
-  const requiresInputArg = /add_argument\(\s*["']--input["']/u.test(scriptSource);
-  const requiresOutputArg = /add_argument\(\s*["']--output["']/u.test(scriptSource);
+  const requiresNamedInputArg = /add_argument\(\s*["']--input["']/u.test(scriptSource);
+  const requiresNamedOutputArg = /add_argument\(\s*["']--output["']/u.test(scriptSource);
+  const requiresPositionalInputArg = /add_argument\(\s*["']input["'](?:\s*[,)\n])/u.test(scriptSource);
+  const requiresPositionalOutputArg = /add_argument\(\s*["']output["'](?:\s*[,)\n])/u.test(scriptSource);
 
-  if (requiresInputArg) {
+  if (requiresNamedInputArg) {
     args.push('--input', job.baseModel.storagePath);
   }
 
-  if (requiresOutputArg) {
+  if (requiresNamedOutputArg) {
     args.push('--output', job.outputModel.storagePath);
+  }
+
+  if (!requiresNamedInputArg && !requiresNamedOutputArg && requiresPositionalInputArg && requiresPositionalOutputArg) {
+    args.push(job.baseModel.storagePath, job.outputModel.storagePath);
   }
 
   return args;

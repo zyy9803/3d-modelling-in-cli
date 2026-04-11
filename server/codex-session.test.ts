@@ -626,6 +626,97 @@ describe('CodexSessionController', () => {
     );
   });
 
+  it('passes positional input/output arguments to draft scripts during model generation', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
+    const controller = new CodexSessionController({
+      rootDir,
+      appServerPort: 4179,
+      sessionId: 'sess_main',
+    });
+    const events: Array<Record<string, unknown>> = [];
+    controller.subscribe((event) => {
+      events.push(event as Record<string, unknown>);
+    });
+
+    await controller.switchModel({
+      sessionId: 'sess_main',
+      activeModelId: 'model_001',
+      modelLabel: 'part.stl',
+    });
+
+    await writeFile(
+      join(rootDir, 'artifacts', 'models', 'model_001_original.stl'),
+      'solid demo\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid demo\n',
+      'utf8',
+    );
+
+    await controller.submitMessage({
+      sessionId: 'sess_main',
+      activeModelId: 'model_001',
+      message: {
+        role: 'user',
+        text: 'prepare a mesh edit draft',
+      },
+      selectionContext: {
+        mode: 'click',
+        triangleIds: [],
+        components: [],
+      },
+      viewContext: {
+        cameraPosition: [0, 0, 10],
+        target: [0, 0, 0],
+        up: [0, 1, 0],
+        fov: 50,
+        viewDirection: [0, 0, -1],
+        dominantOrientation: '+Z',
+        viewportSize: [1280, 720],
+      },
+    });
+
+    await writeFile(
+      join(rootDir, 'artifacts', 'jobs', 'job_001', 'edit.py'),
+      [
+        'import argparse',
+        'import shutil',
+        '',
+        'parser = argparse.ArgumentParser()',
+        'parser.add_argument("input")',
+        'parser.add_argument("output")',
+        'args = parser.parse_args()',
+        'shutil.copyfile(args.input, args.output)',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    await (controller as unknown as {
+      handleNotification(notification: ServerNotification): Promise<void>;
+    }).handleNotification({
+      method: 'turn/completed',
+      params: {
+        threadId: 'thread_1',
+        turn: {
+          id: 'turn_1',
+          status: 'completed',
+        },
+      },
+    });
+
+    events.length = 0;
+    await controller.generateModel({
+      sessionId: 'sess_main',
+    });
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'model_generated',
+          newModelId: 'model_002',
+        }),
+      ]),
+    );
+  });
+
   it('auto-accepts command execution approvals without surfacing a decision card', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
     const controller = new CodexSessionController({
