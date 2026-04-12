@@ -57,7 +57,10 @@ export class CodexProcessManager extends EventEmitter {
     } catch (error) {
       this.emit('process', {
         type: 'error',
-        error: error instanceof Error ? error : new Error('Failed to clear codex app-server port.'),
+        error:
+          error instanceof Error
+            ? error
+            : new Error('Failed to clear codex app-server port.'),
       } satisfies CodexProcessEvent);
       return;
     }
@@ -78,15 +81,11 @@ export class CodexProcessManager extends EventEmitter {
           ? ['/d', '/s', '/c', `codex.cmd ${args.map(quoteWindowsArg).join(' ')}`]
           : args;
 
-      const child = spawn(
-        command,
-        commandArgs,
-        {
-          cwd: this.options.cwd,
-          stdio: ['ignore', 'pipe', 'pipe'],
-          windowsHide: true,
-        },
-      );
+      const child = spawn(command, commandArgs, {
+        cwd: this.options.cwd,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      });
 
       this.child = child;
 
@@ -125,7 +124,10 @@ export class CodexProcessManager extends EventEmitter {
     } catch (error) {
       this.emit('process', {
         type: 'error',
-        error: error instanceof Error ? error : new Error('Failed to start codex app-server.'),
+        error:
+          error instanceof Error
+            ? error
+            : new Error('Failed to start codex app-server.'),
       } satisfies CodexProcessEvent);
     }
   }

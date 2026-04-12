@@ -4,11 +4,11 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { createEditJobFactory } from './edit-job.js';
-import { createModelRegistry } from './model-registry.js';
+import { createModelRegistry } from '../../models/infrastructure/model-registry.js';
+import { createEditJobFactory } from './edit-job-workspace.js';
 
 describe('createEditJobFactory', () => {
-  it('creates a job workspace and writes a structured context file', async () => {
+  it('creates a draft workspace and prepares execution context', async () => {
     const root = await mkdtemp(join(tmpdir(), 'codex-edit-job-'));
     const modelsRoot = join(root, 'models');
     const jobsRoot = join(root, 'jobs');
@@ -23,7 +23,7 @@ describe('createEditJobFactory', () => {
       registry,
     });
 
-    const job = await factory.createJob({
+    const draftJob = await factory.createDraft({
       activeModelId: imported.modelId,
       selectionContext: {
         mode: 'click',
@@ -42,23 +42,53 @@ describe('createEditJobFactory', () => {
       userInstruction: 'raise the selected surface by 2mm',
     });
 
-    expect(job.jobId).toBe('job_001');
-    expect(job.workspacePath).toBe(join(jobsRoot, 'job_001'));
-    expect(job.contextPath).toBe(join(jobsRoot, 'job_001', 'context.json'));
-    expect(job.scriptPath).toBe(join(jobsRoot, 'job_001', 'edit.py'));
-    expect(job.resultPath).toBe(join(jobsRoot, 'job_001', 'result.json'));
-    expect(job.baseModel).toEqual(imported);
-    expect(job.outputModel).toEqual({
+    expect(draftJob.jobId).toBe('job_001');
+    expect(draftJob.workspacePath).toBe(join(jobsRoot, 'job_001'));
+    expect(draftJob.contextPath).toBe(join(jobsRoot, 'job_001', 'context.json'));
+    expect(draftJob.scriptPath).toBe(join(jobsRoot, 'job_001', 'edit.py'));
+    expect(draftJob.resultPath).toBe(join(jobsRoot, 'job_001', 'result.json'));
+    expect(draftJob.baseModel).toEqual(imported);
+
+    const draftContext = JSON.parse(
+      await readFile(draftJob.contextPath, 'utf8'),
+    ) as Record<string, unknown>;
+    expect(draftContext).toEqual({
+      jobId: 'job_001',
+      baseModelId: 'model_001',
+      activeModelId: 'model_001',
+      baseModelPath: join(modelsRoot, 'model_001_original.stl'),
+      outputModelPath: null,
+      selectionContext: {
+        mode: 'click',
+        triangleIds: [1, 2, 3],
+        components: [],
+      },
+      viewContext: {
+        cameraPosition: [1, 2, 3],
+        target: [0, 0, 0],
+        up: [0, 1, 0],
+        fov: 50,
+        viewDirection: [0, 0, -1],
+        dominantOrientation: '+X',
+        viewportSize: [1280, 720],
+      },
+      userInstruction: 'raise the selected surface by 2mm',
+    });
+
+    const executionJob = await factory.prepareExecution(draftJob);
+    expect(executionJob.outputModel).toEqual({
       modelId: 'model_002',
       parentModelId: 'model_001',
-      sourceFileName: 'part-edited.stl',
+      sourceFileName: 'model_002_from_model_001.stl',
       storagePath: join(modelsRoot, 'model_002_from_model_001.stl'),
       sourceJobId: 'job_001',
       createdAt: expect.any(String),
     });
 
-    const context = JSON.parse(await readFile(job.contextPath, 'utf8')) as Record<string, unknown>;
-    expect(context).toEqual({
+    const executionContext = JSON.parse(
+      await readFile(draftJob.contextPath, 'utf8'),
+    ) as Record<string, unknown>;
+    expect(executionContext).toEqual({
       jobId: 'job_001',
       baseModelId: 'model_001',
       activeModelId: 'model_001',
@@ -91,7 +121,7 @@ describe('createEditJobFactory', () => {
     });
 
     await expect(
-      factory.createJob({
+      factory.createDraft({
         activeModelId: 'model_999',
         selectionContext: {
           mode: 'box',

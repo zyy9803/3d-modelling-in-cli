@@ -15,7 +15,7 @@ import type {
   TurnSteerResponse,
   TurnStartParams,
   TurnStartResponse,
-} from './codex-app-server-protocol.js';
+} from '../protocol/codex-app-server-protocol.js';
 
 type ConnectionStatus = 'starting' | 'connected' | 'disconnected' | 'failed';
 
@@ -109,11 +109,16 @@ export class CodexGateway {
     return this.sendRequest<TurnSteerResponse>('turn/steer', params);
   }
 
-  public async interruptTurn(params: TurnInterruptParams): Promise<TurnInterruptResponse> {
+  public async interruptTurn(
+    params: TurnInterruptParams,
+  ): Promise<TurnInterruptResponse> {
     return this.sendRequest<TurnInterruptResponse>('turn/interrupt', params);
   }
 
-  public async respondToServerRequest(requestId: RequestId, result: unknown): Promise<void> {
+  public async respondToServerRequest(
+    requestId: RequestId,
+    result: unknown,
+  ): Promise<void> {
     await this.whenReady();
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error('Codex app-server is not connected.');
@@ -142,7 +147,10 @@ export class CodexGateway {
             return;
           }
 
-          const message = error instanceof Error ? error.message : 'Failed to connect to Codex app-server.';
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Failed to connect to Codex app-server.';
           this.setStatus('disconnected', message);
           await this.delay(800);
         }
@@ -197,7 +205,10 @@ export class CodexGateway {
 
     socket.on('error', (error: Error) => {
       if (!this.closing) {
-        this.setStatus('disconnected', error.message || 'Codex app-server connection error.');
+        this.setStatus(
+          'disconnected',
+          error.message || 'Codex app-server connection error.',
+        );
       }
     });
 
@@ -248,19 +259,27 @@ export class CodexGateway {
     this.pendingRequests.delete(message.id);
 
     if (message.error) {
-      pending.reject(new Error(message.error.message ?? 'Codex app-server request failed.'));
+      pending.reject(
+        new Error(message.error.message ?? 'Codex app-server request failed.'),
+      );
       return;
     }
 
     pending.resolve(message.result);
   }
 
-  private async sendRequest<TResponse>(method: ClientRequestMethod, params: unknown): Promise<TResponse> {
+  private async sendRequest<TResponse>(
+    method: ClientRequestMethod,
+    params: unknown,
+  ): Promise<TResponse> {
     await this.whenReady();
     return this.sendRawRequest<TResponse>(method, params);
   }
 
-  private async sendRawRequest<TResponse>(method: string, params: unknown): Promise<TResponse> {
+  private async sendRawRequest<TResponse>(
+    method: string,
+    params: unknown,
+  ): Promise<TResponse> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error('Codex app-server is not connected.');
     }

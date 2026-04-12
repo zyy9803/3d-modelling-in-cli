@@ -4,10 +4,10 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { CodexSessionController } from './codex-session.js';
-import type { ModelStorage } from './model-storage.js';
-import { createModelRegistry } from './model-registry.js';
-import { createRequestListener } from './routes.js';
+import type { ModelStorage } from '../../modules/models/infrastructure/model-storage.js';
+import { CodexSessionController } from '../../modules/session/application/session-service.js';
+import { createModelRegistry } from '../../modules/models/infrastructure/model-registry.js';
+import { createRequestListener } from './request-listener.js';
 
 function createMockResponse() {
   const headers = new Map<string, string>();
@@ -66,7 +66,9 @@ describe('createRequestListener', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.headers.get('content-type')).toBe('model/stl');
-    expect(response.body).toEqual(Buffer.from('solid demo\nendsolid demo\n', 'utf8'));
+    expect(response.body).toEqual(
+      Buffer.from('solid demo\nendsolid demo\n', 'utf8'),
+    );
   });
 
   it('returns 404 json when the model id is unknown', async () => {
@@ -116,7 +118,9 @@ describe('createRequestListener', () => {
 
     expect(response.statusCode).toBe(404);
     expect(response.headers.get('content-type')).toContain('application/json');
-    expect(JSON.parse(String(response.body))).toEqual({ error: 'Model file not found' });
+    expect(JSON.parse(String(response.body))).toEqual({
+      error: 'Model file not found',
+    });
   });
 
   it('returns 500 json when reading the model file fails unexpectedly', async () => {
@@ -158,6 +162,8 @@ describe('createRequestListener', () => {
 
     expect(response.statusCode).toBe(500);
     expect(response.headers.get('content-type')).toContain('application/json');
-    expect(JSON.parse(String(response.body))).toEqual({ error: 'Failed to read model file' });
+    expect(JSON.parse(String(response.body))).toEqual({
+      error: 'Failed to read model file',
+    });
   });
 });

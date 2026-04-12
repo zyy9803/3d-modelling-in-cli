@@ -32,7 +32,10 @@ export async function readModelFile(modelPath: string): Promise<Buffer> {
   return readFile(modelPath);
 }
 
-export async function writeModelFile(modelPath: string, content: Buffer): Promise<void> {
+export async function writeModelFile(
+  modelPath: string,
+  content: Buffer,
+): Promise<void> {
   await writeFile(modelPath, content);
 }
 
@@ -45,7 +48,9 @@ export async function outputModelExists(modelPath: string): Promise<boolean> {
   }
 }
 
-export async function validateGeneratedModel(modelPath: string): Promise<ModelValidationResult> {
+export async function validateGeneratedModel(
+  modelPath: string,
+): Promise<ModelValidationResult> {
   const stat = await readModelStat(modelPath);
   if (!stat) {
     return {

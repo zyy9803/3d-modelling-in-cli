@@ -19,10 +19,13 @@ import type {
   TurnStartResponse,
   TurnSteerParams,
   TurnSteerResponse,
-} from './codex-app-server-protocol.js';
+} from '../../codex-runtime/protocol/codex-app-server-protocol.js';
 
 type GatewayHandlers = {
-  onConnectionStatusChange: (status: 'starting' | 'connected' | 'disconnected' | 'failed', message: string) => void;
+  onConnectionStatusChange: (
+    status: 'starting' | 'connected' | 'disconnected' | 'failed',
+    message: string,
+  ) => void;
   onNotification: (notification: ServerNotification) => void;
   onServerRequest: (request: ServerRequest) => void;
 };
@@ -58,7 +61,7 @@ const mockState = vi.hoisted(() => ({
   processes: [] as ProcessSpy[],
 }));
 
-vi.mock('./codex-gateway.js', () => {
+vi.mock('../../codex-runtime/infrastructure/codex-gateway.js', () => {
   class FakeCodexGateway {
     public readonly startThreadCalls: ThreadStartParams[] = [];
     public readonly startTurnCalls: TurnStartParams[] = [];
@@ -83,7 +86,9 @@ vi.mock('./codex-gateway.js', () => {
 
     public async whenReady(): Promise<void> {}
 
-    public async startThread(params: ThreadStartParams): Promise<ThreadStartResponse> {
+    public async startThread(
+      params: ThreadStartParams,
+    ): Promise<ThreadStartResponse> {
       this.startThreadCalls.push(params);
       return {
         thread: {
@@ -109,12 +114,17 @@ vi.mock('./codex-gateway.js', () => {
       };
     }
 
-    public async interruptTurn(params: TurnInterruptParams): Promise<TurnInterruptResponse> {
+    public async interruptTurn(
+      params: TurnInterruptParams,
+    ): Promise<TurnInterruptResponse> {
       this.interruptTurnCalls.push(params);
       return {};
     }
 
-    public async respondToServerRequest(requestId: RequestId, result: unknown): Promise<void> {
+    public async respondToServerRequest(
+      requestId: RequestId,
+      result: unknown,
+    ): Promise<void> {
       this.respondCalls.push({
         requestId,
         result,
@@ -127,7 +137,7 @@ vi.mock('./codex-gateway.js', () => {
   };
 });
 
-vi.mock('./codex-process.js', () => {
+vi.mock('../../codex-runtime/infrastructure/codex-process.js', () => {
   class FakeCodexProcessManager {
     public readonly listenUrl: string;
     private stopping = false;
@@ -160,7 +170,7 @@ vi.mock('./codex-process.js', () => {
   };
 });
 
-import { CodexSessionController } from './codex-session.js';
+import { CodexSessionController } from './session-service.js';
 
 describe('CodexSessionController', () => {
   beforeEach(() => {
@@ -228,9 +238,17 @@ describe('CodexSessionController', () => {
         }),
       ]),
     );
-    expect(String(gateway.startTurnCalls[0].input[0].text)).toContain('editJob.jobId: job_001');
     expect(String(gateway.startTurnCalls[0].input[0].text)).toContain(
-      `editJob.scriptPath: ${join(rootDir, 'artifacts', 'jobs', 'job_001', 'edit.py')}`,
+      'editJob.jobId: job_001',
+    );
+    expect(String(gateway.startTurnCalls[0].input[0].text)).toContain(
+      `editJob.scriptPath: ${join(
+        rootDir,
+        'artifacts',
+        'jobs',
+        'job_001',
+        'edit.py',
+      )}`,
     );
     expect(String(gateway.startTurnCalls[0].input[0].text)).toContain(
       'You must first inspect and globally parse the active STL',
@@ -386,7 +404,12 @@ describe('CodexSessionController', () => {
   it('runs generation only when explicitly requested after a ready draft exists', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'codex-session-'));
     const draftRunner = vi.fn(async () => {
-      const outputPath = join(rootDir, 'artifacts', 'models', 'model_002_from_model_001.stl');
+      const outputPath = join(
+        rootDir,
+        'artifacts',
+        'models',
+        'model_002_from_model_001.stl',
+      );
       await writeFile(outputPath, 'solid demo\nendsolid demo\n', 'utf8');
     });
     const controller = new CodexSessionController({
@@ -429,7 +452,11 @@ describe('CodexSessionController', () => {
       },
     });
 
-    await writeFile(join(rootDir, 'artifacts', 'jobs', 'job_001', 'edit.py'), 'print("draft")\n', 'utf8');
+    await writeFile(
+      join(rootDir, 'artifacts', 'jobs', 'job_001', 'edit.py'),
+      'print("draft")\n',
+      'utf8',
+    );
 
     await (controller as unknown as {
       handleNotification(notification: ServerNotification): Promise<void>;
@@ -461,7 +488,12 @@ describe('CodexSessionController', () => {
           type: 'model_generated',
           newModelId: 'model_002',
           modelLabel: 'model_002_from_model_001.stl',
-          modelPath: join(rootDir, 'artifacts', 'models', 'model_002_from_model_001.stl'),
+          modelPath: join(
+            rootDir,
+            'artifacts',
+            'models',
+            'model_002_from_model_001.stl',
+          ),
         }),
         expect.objectContaining({
           type: 'draft_state_changed',
@@ -546,7 +578,11 @@ describe('CodexSessionController', () => {
       },
     });
 
-    await writeFile(join(rootDir, 'artifacts', 'jobs', 'job_001', 'edit.py'), 'print("draft")\n', 'utf8');
+    await writeFile(
+      join(rootDir, 'artifacts', 'jobs', 'job_001', 'edit.py'),
+      'print("draft")\n',
+      'utf8',
+    );
 
     await (controller as unknown as {
       handleNotification(notification: ServerNotification): Promise<void>;

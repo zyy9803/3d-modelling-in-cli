@@ -1,8 +1,14 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-import type { SelectionContextPayload, ViewContextPayload } from '../src/shared/codex-session-types.js';
-import type { ModelRecord, ModelRegistry } from './model-registry.js';
+import type {
+  SelectionContextPayload,
+  ViewContextPayload,
+} from '../../../../src/shared/codex-session-types.js';
+import type {
+  ModelRecord,
+  ModelRegistry,
+} from '../../models/infrastructure/model-registry.js';
 
 export type DraftJobInput = {
   activeModelId: string;
@@ -37,7 +43,9 @@ export type EditJobFactory = {
   prepareExecution(draftJob: DraftJobRecord): Promise<ExecutionJobRecord>;
 };
 
-export function createEditJobFactory(options: EditJobFactoryOptions): EditJobFactory {
+export function createEditJobFactory(
+  options: EditJobFactoryOptions,
+): EditJobFactory {
   let nextSequence = 0;
   const jobsRoot = resolve(options.jobsRoot);
 
@@ -58,7 +66,14 @@ export function createEditJobFactory(options: EditJobFactoryOptions): EditJobFac
       await mkdir(workspacePath, { recursive: true });
       await writeFile(
         contextPath,
-        buildContextJson(jobId, baseModel, null, input.selectionContext, input.viewContext, input.userInstruction),
+        buildContextJson(
+          jobId,
+          baseModel,
+          null,
+          input.selectionContext,
+          input.viewContext,
+          input.userInstruction,
+        ),
         'utf8',
       );
 
@@ -74,7 +89,9 @@ export function createEditJobFactory(options: EditJobFactoryOptions): EditJobFac
         userInstruction: input.userInstruction,
       };
     },
-    async prepareExecution(draftJob: DraftJobRecord): Promise<ExecutionJobRecord> {
+    async prepareExecution(
+      draftJob: DraftJobRecord,
+    ): Promise<ExecutionJobRecord> {
       const outputModel = options.registry.registerDerivedModel({
         parentModelId: draftJob.baseModel.modelId,
         sourceFileName: `${stripStlExtension(draftJob.baseModel.sourceFileName)}-edited.stl`,

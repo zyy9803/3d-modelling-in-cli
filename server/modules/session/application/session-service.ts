@@ -3,7 +3,7 @@ import { access, copyFile, readFile, readdir, stat } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { basename, join, resolve } from 'node:path';
 
-import { buildCodexTurnPrompt } from '../src/shared/codex-turn-prompt.js';
+import { buildCodexTurnPrompt } from '../../../../src/shared/codex-turn-prompt.js';
 import type {
   ChatSessionStatus,
   CodexConnectionStatus,
@@ -17,61 +17,63 @@ import type {
   SessionMessageRequest,
   SessionModelSwitchRequest,
   SessionStreamEvent,
-} from '../src/shared/codex-session-types.js';
+} from '../../../../src/shared/codex-session-types.js';
 
 import {
   createEditJobFactory,
   type DraftJobRecord,
   type EditJobFactory,
   type ExecutionJobRecord,
-} from './edit-job.js';
-import { createDebugLogger, type DebugLogger } from './debug-log.js';
+} from '../../jobs/infrastructure/edit-job-workspace.js';
+import {
+  createEditJobService,
+  type EditJobService,
+} from '../../jobs/application/edit-job-service.js';
+import { createDebugLogger, type DebugLogger } from '../../../shared/logging/debug-log.js';
 import {
   createModelRegistry,
   type ModelRegistry,
-} from './model-registry.js';
+} from '../../models/infrastructure/model-registry.js';
 import {
   createModelStorage,
   type ModelStorage,
-} from './model-storage.js';
+} from '../../models/infrastructure/model-storage.js';
+import {
+  createModelCatalogService,
+  type ModelCatalogService,
+} from '../../models/application/model-catalog-service.js';
 import {
   buildDecisionActivityEvents,
   buildDecisionEnvelope,
   buildDecisionResponse,
+  type PendingDecisionEnvelope,
+} from '../mappers/decision-mapper.js';
+import {
   mapThreadStatus,
   normalizeServerNotification,
-  type PendingDecisionEnvelope,
-} from './codex-adapter.js';
+} from '../mappers/notification-mapper.js';
 import type {
   CommandExecutionRequestApprovalParams,
   FileChangeRequestApprovalParams,
   PermissionsRequestApprovalParams,
   ServerNotification,
   ServerRequest,
-} from './codex-app-server-protocol.js';
-import { CodexGateway } from './codex-gateway.js';
-import { CodexProcessManager, type CodexProcessEvent } from './codex-process.js';
+} from '../../codex-runtime/protocol/codex-app-server-protocol.js';
+import {
+  createCodexRuntime,
+  type CodexRuntime,
+} from '../infrastructure/codex-runtime.js';
+import {
+  SessionEventBus,
+  type SessionSubscriber,
+} from '../infrastructure/session-event-bus.js';
+import {
+  EMPTY_DRAFT_STATE,
+  replaySessionSnapshot,
+  type SessionSnapshot,
+} from '../domain/session-snapshot.js';
 
-type SessionSubscriber = (event: SessionStreamEvent) => void;
 const execFileAsync = promisify(execFile);
-
-const EMPTY_DRAFT_STATE: DraftState = {
-  status: 'empty',
-  jobId: null,
-  baseModelId: null,
-  scriptPath: null,
-  message: null,
-};
-
-export type SessionSnapshot = {
-  sessionId: string;
-  connectionStatus: CodexConnectionStatus;
-  connectionMessage: string;
-  sessionStatus: ChatSessionStatus;
-  activeModelId: string | null;
-  modelLabel: string | null;
-  draft: DraftState;
-};
 
 export type CodexSessionControllerOptions = {
   rootDir: string;
@@ -86,13 +88,14 @@ export type CodexSessionControllerOptions = {
 };
 
 export class CodexSessionController {
-  private readonly subscribers = new Set<SessionSubscriber>();
+  private readonly eventBus = new SessionEventBus();
   private readonly sessionId: string;
-  private readonly processManager: CodexProcessManager;
-  private readonly gateway: CodexGateway;
+  private readonly runtime: CodexRuntime;
   private readonly modelRegistry: ModelRegistry;
   private readonly editJobFactory: EditJobFactory;
   private readonly modelStorage: ModelStorage;
+  private readonly modelCatalogService: ModelCatalogService;
+  private readonly editJobService: EditJobService;
   private readonly debugLogger: DebugLogger;
   private connectionStatus: CodexConnectionStatus = 'starting';
   private connectionMessage = 'Codex starting';
@@ -117,18 +120,22 @@ export class CodexSessionController {
     this.editJobFactory =
       options.editJobFactory ?? createEditJobFactory({ jobsRoot, registry: this.modelRegistry });
     this.modelStorage = options.modelStorage ?? createModelStorage(modelsRoot);
-    this.draftRunner = options.draftRunner ?? runDraftScript;
-    this.processManager = new CodexProcessManager({
-      listenPort: options.appServerPort,
-      cwd: options.rootDir,
+    this.modelCatalogService = createModelCatalogService({
+      modelRegistry: this.modelRegistry,
+      modelStorage: this.modelStorage,
     });
+    this.editJobService = createEditJobService(this.editJobFactory);
+    this.draftRunner = options.draftRunner ?? runDraftScript;
     this.debugLogger.log('session.constructed', {
       sessionId: this.sessionId,
       rootDir: options.rootDir,
       appServerPort: options.appServerPort,
       logPath: this.debugLogger.path,
     });
-    this.gateway = new CodexGateway(this.processManager.listenUrl, {
+    this.runtime = createCodexRuntime({
+      listenPort: options.appServerPort,
+      cwd: options.rootDir,
+      handlers: {
       onConnectionStatusChange: (status, message) => {
         this.debugLogger.log('gateway.connection_status_changed', { status, message });
         this.connectionStatus = status;
@@ -154,56 +161,50 @@ export class CodexSessionController {
         });
         void this.handleServerRequest(request);
       },
-    });
+      onProcessEvent: (event) => {
+        this.debugLogger.log('process.event', event);
+        if (event.type === 'error') {
+          this.connectionStatus = 'failed';
+          this.connectionMessage = event.error.message;
+          this.broadcast({
+            type: 'connection_status_changed',
+            connectionStatus: 'failed',
+            message: event.error.message,
+          });
+          return;
+        }
 
-    this.processManager.on('process', (event: CodexProcessEvent) => {
-      this.debugLogger.log('process.event', event);
-      if (event.type === 'error') {
-        this.connectionStatus = 'failed';
-        this.connectionMessage = event.error.message;
-        this.broadcast({
-          type: 'connection_status_changed',
-          connectionStatus: 'failed',
-          message: event.error.message,
-        });
-        return;
-      }
-
-      if (event.type === 'exit' && !this.processManager.isStopping()) {
-        const message =
-          event.code === 0
-            ? 'Codex app-server exited.'
-            : 'Codex app-server exited unexpectedly.';
-        this.connectionStatus = event.code === 0 ? 'disconnected' : 'failed';
-        this.connectionMessage = message;
-        this.broadcast({
-          type: 'connection_status_changed',
-          connectionStatus: this.connectionStatus,
-          message,
-        });
-      }
+        if (event.type === 'exit' && !this.runtime.isStopping()) {
+          const message =
+            event.code === 0
+              ? 'Codex app-server exited.'
+              : 'Codex app-server exited unexpectedly.';
+          this.connectionStatus = event.code === 0 ? 'disconnected' : 'failed';
+          this.connectionMessage = message;
+          this.broadcast({
+            type: 'connection_status_changed',
+            connectionStatus: this.connectionStatus,
+            message,
+          });
+        }
+      },
+      },
     });
   }
 
   public start(): void {
     this.debugLogger.log('session.start');
-    this.processManager.start();
-    this.gateway.start();
+    this.runtime.start();
   }
 
   public stop(): void {
     this.debugLogger.log('session.stop');
-    this.gateway.stop();
-    this.processManager.stop();
+    this.runtime.stop();
   }
 
   public subscribe(subscriber: SessionSubscriber): () => void {
-    this.subscribers.add(subscriber);
     this.replaySnapshot(subscriber);
-
-    return () => {
-      this.subscribers.delete(subscriber);
-    };
+    return this.eventBus.subscribe(subscriber);
   }
 
   public getSnapshot(): SessionSnapshot {
@@ -219,12 +220,7 @@ export class CodexSessionController {
   }
 
   public async readModelFile(modelId: string): Promise<Buffer | null> {
-    const model = this.modelRegistry.getModel(modelId);
-    if (!model) {
-      return null;
-    }
-
-    return this.modelStorage.readModelFile(model.storagePath);
+    return this.modelCatalogService.readModelFile(modelId);
   }
 
   public async importModel(request: SessionImportModelRequest): Promise<SessionImportModelResponse> {
@@ -235,24 +231,20 @@ export class CodexSessionController {
     });
     this.assertSessionId(request.sessionId);
 
-    const fileBuffer = Buffer.from(request.fileContentBase64, 'base64');
-    const model = this.modelRegistry.registerImportedModel({
-      sourceFileName: request.fileName,
-    });
-    await this.modelStorage.writeModelFile(model.storagePath, fileBuffer);
+    const model = await this.modelCatalogService.importModel(request);
 
     this.activeModelId = model.modelId;
-    this.modelLabel = model.sourceFileName;
+    this.modelLabel = model.modelLabel;
     this.clearDraftState();
     this.broadcast({
       type: 'model_switched',
       activeModelId: model.modelId,
-      modelLabel: model.sourceFileName,
+      modelLabel: model.modelLabel,
     });
 
     return {
       modelId: model.modelId,
-      modelLabel: model.sourceFileName,
+      modelLabel: model.modelLabel,
     };
   }
 
@@ -268,7 +260,7 @@ export class CodexSessionController {
 
     this.activeModelId = normalizedRequest.activeModelId;
     this.ensureKnownModel(normalizedRequest.activeModelId, this.modelLabel);
-    await this.gateway.whenReady();
+    await this.runtime.whenReady();
     await this.ensureThread();
 
     const editJob = await this.prepareEditJob(normalizedRequest);
@@ -300,7 +292,7 @@ export class CodexSessionController {
         expectedTurnId: this.activeTurnId,
       });
       try {
-        await this.gateway.steerTurn({
+        await this.runtime.steerTurn({
           threadId: this.requireThreadId(),
           expectedTurnId: this.activeTurnId,
           input,
@@ -311,7 +303,7 @@ export class CodexSessionController {
           this.debugLogger.log('session.submit_message.start_turn_after_steer_failed', {
             threadId: this.requireThreadId(),
           });
-          const response = await this.gateway.startTurn({
+          const response = await this.runtime.startTurn({
             threadId: this.requireThreadId(),
             input,
             cwd: editJob?.workspacePath ?? this.options.rootDir,
@@ -338,7 +330,7 @@ export class CodexSessionController {
         this.debugLogger.log('session.submit_message.start_turn', {
           threadId: this.requireThreadId(),
         });
-        const response = await this.gateway.startTurn({
+        const response = await this.runtime.startTurn({
           threadId: this.requireThreadId(),
           input,
           cwd: editJob?.workspacePath ?? this.options.rootDir,
@@ -390,7 +382,7 @@ export class CodexSessionController {
 
     try {
       await validateDraftScriptForExecution(draftJob.scriptPath);
-      const executionJob = await this.editJobFactory.prepareExecution(draftJob);
+      const executionJob = await this.editJobService.prepareExecution(draftJob);
       this.debugLogger.log('session.generate_model.execution_prepared', {
         jobId: executionJob.jobId,
         scriptPath: executionJob.scriptPath,
@@ -461,7 +453,7 @@ export class CodexSessionController {
       status: 'resuming',
     });
 
-    await this.gateway.respondToServerRequest(
+    await this.runtime.respondToServerRequest(
       pendingDecision.requestId,
       buildDecisionResponse(pendingDecision, request.answers),
     );
@@ -502,7 +494,7 @@ export class CodexSessionController {
 
     const interruptedTurnId = this.activeTurnId;
     this.interruptedTurnId = interruptedTurnId;
-    await this.gateway.interruptTurn({
+    await this.runtime.interruptTurn({
       threadId: this.threadId,
       turnId: interruptedTurnId,
     });
@@ -521,7 +513,7 @@ export class CodexSessionController {
     this.debugLogger.log('session.clear');
     if (this.threadId && this.activeTurnId) {
       try {
-        await this.gateway.interruptTurn({
+        await this.runtime.interruptTurn({
           threadId: this.threadId,
           turnId: this.activeTurnId,
         });
@@ -557,7 +549,7 @@ export class CodexSessionController {
       return;
     }
 
-    const response = await this.gateway.startThread({
+    const response = await this.runtime.startThread({
       cwd: this.options.rootDir,
       approvalPolicy: 'never',
       approvalsReviewer: null,
@@ -720,7 +712,7 @@ export class CodexSessionController {
           command: params.command ?? null,
           cwd: params.cwd ?? null,
         });
-        await this.gateway.respondToServerRequest(request.id, { decision });
+        await this.runtime.respondToServerRequest(request.id, { decision });
         return true;
       }
       case 'item/fileChange/requestApproval':
@@ -728,7 +720,7 @@ export class CodexSessionController {
           requestId: request.id,
           grantRoot: (request.params as FileChangeRequestApprovalParams).grantRoot ?? null,
         });
-        await this.gateway.respondToServerRequest(request.id, { decision: 'acceptForSession' });
+        await this.runtime.respondToServerRequest(request.id, { decision: 'acceptForSession' });
         return true;
       case 'item/permissions/requestApproval': {
         const params = request.params as PermissionsRequestApprovalParams;
@@ -736,7 +728,7 @@ export class CodexSessionController {
           requestId: request.id,
           permissions: params.permissions,
         });
-        await this.gateway.respondToServerRequest(request.id, {
+        await this.runtime.respondToServerRequest(request.id, {
           permissions: {
             network: params.permissions.network,
             fileSystem: params.permissions.fileSystem,
@@ -763,52 +755,17 @@ export class CodexSessionController {
   }
 
   private replaySnapshot(subscriber: SessionSubscriber): void {
-    subscriber({
-      type: 'connection_status_changed',
-      connectionStatus: this.connectionStatus,
-      message: this.connectionMessage,
+    replaySessionSnapshot(subscriber, {
+      ...this.getSnapshot(),
+      pendingDecision: this.pendingDecision?.card ?? null,
+      pendingDecisionId: this.pendingDecision?.id ?? null,
+      hasThread: this.threadId !== null,
     });
-    subscriber({
-      type: 'status_changed',
-      status: this.sessionStatus,
-    });
-    subscriber({
-      type: 'draft_state_changed',
-      draft: { ...this.draftState },
-    });
-
-    if (this.threadId) {
-      subscriber({
-        type: 'session_started',
-        sessionId: this.sessionId,
-      });
-    }
-
-    if (this.activeModelId || this.modelLabel) {
-      subscriber({
-        type: 'model_switched',
-        activeModelId: this.activeModelId,
-        modelLabel: this.modelLabel,
-      });
-    }
-
-    if (this.pendingDecision) {
-      subscriber({
-        type: 'needs_decision',
-        decision: this.pendingDecision.card,
-      });
-      subscriber({
-        type: 'session_paused',
-        decisionId: this.pendingDecision.id,
-      });
-    }
   }
 
   private broadcast(event: SessionStreamEvent): void {
     this.debugLogger.log('session.broadcast', event);
-    for (const subscriber of this.subscribers) {
-      subscriber(event);
-    }
+    this.eventBus.publish(event);
   }
 
   private broadcastModelGenerated(job: ExecutionJobRecord): void {
@@ -842,7 +799,7 @@ export class CodexSessionController {
 
     this.clearDraftState();
 
-    const editJob = await this.editJobFactory.createDraft({
+    const editJob = await this.editJobService.createDraft({
       activeModelId: request.activeModelId,
       selectionContext: request.selectionContext,
       viewContext: request.viewContext,

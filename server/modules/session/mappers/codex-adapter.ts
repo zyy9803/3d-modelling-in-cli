@@ -17,7 +17,7 @@ import type {
   ThreadStatus,
   ToolRequestUserInputParams,
   ToolRequestUserInputResponse,
-} from './codex-app-server-protocol.js';
+} from '../../codex-runtime/protocol/codex-app-server-protocol.js';
 import type {
   ChatSessionStatus,
   DecisionOption,
@@ -26,7 +26,7 @@ import type {
   SessionDecisionCard,
   SessionInfoField,
   SessionStreamEvent,
-} from '../src/shared/codex-session-types.js';
+} from '../../../../src/shared/codex-session-types.js';
 
 export type PendingDecisionKind =
   | 'user_input'
