@@ -1,14 +1,13 @@
-import './styles.css';
+import { StrictMode, createElement } from "react";
+import { createRoot } from "react-dom/client";
 
-import { ViewerApp } from './app/ViewerApp';
-import { MockSessionClient, resolveMockCodexScenarioId } from './chat/mock-session-client';
+import "./styles/index.scss";
+import { App } from "./app/App";
 
-const root = document.querySelector<HTMLElement>('#app');
+const root = document.querySelector<HTMLElement>("#app");
 
 if (!root) {
-  throw new Error('App root #app was not found.');
+  throw new Error("App root #app was not found.");
 }
 
-const mockScenarioId = resolveMockCodexScenarioId(window.location.search);
-
-new ViewerApp(root, mockScenarioId ? { sessionClient: new MockSessionClient(mockScenarioId) } : undefined);
+createRoot(root).render(createElement(StrictMode, null, createElement(App)));

@@ -1,0 +1,212 @@
+:root {
+  color-scheme: dark;
+  font-family: "Inter", "SF Pro Display", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #eff6ff;
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 32%),
+    radial-gradient(circle at top right, rgba(168, 85, 247, 0.14), transparent 28%),
+    linear-gradient(180deg, #07111f 0%, #0a1323 44%, #0a1425 100%);
+  --bg-canvas: #07111f;
+  --bg-surface: rgba(10, 20, 37, 0.84);
+  --bg-surface-strong: rgba(14, 27, 49, 0.94);
+  --bg-elevated: rgba(18, 34, 59, 0.94);
+  --bg-muted: rgba(148, 163, 184, 0.08);
+  --bg-muted-strong: rgba(148, 163, 184, 0.14);
+  --border-subtle: rgba(148, 163, 184, 0.12);
+  --border-default: rgba(148, 163, 184, 0.2);
+  --border-strong: rgba(148, 163, 184, 0.28);
+  --text-primary: #eff6ff;
+  --text-secondary: #c7d7ea;
+  --text-muted: #8ea4be;
+  --text-faint: #6d829c;
+  --accent: #7c9cff;
+  --accent-strong: #98afff;
+  --accent-warm: #f5c66a;
+  --success: #4ade80;
+  --danger: #fb7185;
+  --radius-sm: 14px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 30px;
+  --shadow-soft: 0 12px 32px rgba(2, 8, 23, 0.22);
+  --shadow-panel: 0 22px 60px rgba(2, 8, 23, 0.34);
+  --shadow-glow: 0 0 0 1px rgba(124, 156, 255, 0.12), 0 18px 60px rgba(34, 74, 170, 0.18);
+  --transition-fast: 160ms ease;
+  --transition-base: 220ms ease;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button,
+input,
+textarea {
+  color: inherit;
+}
+
+#app {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(124, 156, 255, 0.95);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 20px;
+  top: 18px;
+  transform: translateY(-160%);
+  z-index: 30;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(10, 20, 37, 0.96);
+  border: 1px solid rgba(124, 156, 255, 0.36);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: transform var(--transition-fast);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+.app-shell {
+  position: relative;
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  padding: clamp(14px, 2vw, 24px);
+  gap: clamp(14px, 1.6vw, 20px);
+  overflow: hidden;
+}
+
+.app-shell--with-chat {
+  grid-template-columns: minmax(0, 1.55fr) minmax(460px, 1fr);
+  align-items: stretch;
+}
+
+.app-main {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: inherit;
+}
+
+.topbar,
+.viewport-panel,
+.workspace-card,
+.chat-panel {
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: var(--shadow-panel);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: 18px;
+}
+
+.topbar__intro,
+.topbar__title-group,
+.topbar__actions,
+.topbar__primary-actions,
+.topbar__badge-list {
+  display: flex;
+}
+
+.topbar__intro,
+.topbar__actions {
+  align-items: center;
+}
+
+.topbar__intro {
+  gap: 10px;
+  min-width: 0;
+}
+
+.topbar__title-group {
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.topbar__eyebrow,
+.workspace-card__eyebrow,
+.empty-state__eyebrow,
+.chat-panel__eyebrow,
+.chat-decision__eyebrow {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.topbar h1,
+.topbar p,
+.workspace-card h2,
+.workspace-card p,
+.empty-state h2,
+.empty-state p,
+.chat-panel__title,
+.chat-panel__description {
+  margin: 0;
+}
+
+.topbar h1 {
+  font-size: clamp(1rem, 0.94rem + 0.35vw, 1.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.topbar__title-group p {
+  max-width: 42ch;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.topbar__actions {
+  margin-left: auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 0 1 min(52%, 560px);
+  justify-content: flex-end;
+}
+
+.topbar__badge-list,
+.topbar__primary-actions {
+  flex-wrap: wrap;
+  gap: 10px;
+}

@@ -14,14 +14,19 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "ws": "^8.18.3",
-    "three": "^0.179.1"
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "three": "^0.179.1",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@types/node": "^22.15.30",
-    "concurrently": "^9.2.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@types/three": "^0.179.0",
+    "concurrently": "^9.2.1",
     "jsdom": "^27.0.0",
+    "sass": "^1.99.0",
     "tsx": "^4.19.4",
     "typescript": "^5.9.2",
     "vite": "^7.1.3",

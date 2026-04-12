@@ -1,0 +1,117 @@
+.surface-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.surface-badge--muted {
+  color: var(--text-muted);
+}
+
+.surface-badge--accent {
+  color: #f7fbff;
+  border-color: rgba(124, 156, 255, 0.36);
+  background: rgba(124, 156, 255, 0.16);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.button--compact {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+}
+
+.button--toolbar {
+  min-width: 108px;
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-primary);
+}
+
+.button--toolbar:hover {
+  border-color: rgba(148, 163, 184, 0.32);
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.button:hover {
+  transform: translateY(-1px);
+}
+
+.button:active {
+  transform: translateY(0);
+}
+
+.button:disabled,
+.chat-panel button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.button--primary {
+  border-color: rgba(124, 156, 255, 0.32);
+  background: linear-gradient(180deg, rgba(129, 149, 255, 0.3), rgba(82, 112, 222, 0.3));
+  color: #f8fbff;
+  box-shadow: var(--shadow-glow);
+}
+
+.button--primary:hover {
+  border-color: rgba(152, 175, 255, 0.5);
+  background: linear-gradient(180deg, rgba(129, 149, 255, 0.4), rgba(82, 112, 222, 0.34));
+}
+
+.button--secondary {
+  border-color: var(--border-default);
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-primary);
+}
+
+.button--secondary:hover {
+  border-color: rgba(148, 163, 184, 0.3);
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.button--ghost {
+  border-color: var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+}
+
+.button--ghost:hover {
+  border-color: var(--border-default);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.button--danger {
+  border-color: rgba(251, 113, 133, 0.3);
+  background: rgba(251, 113, 133, 0.14);
+  color: #ffe7ed;
+}
+
+.button--danger:hover {
+  border-color: rgba(251, 113, 133, 0.45);
+  background: rgba(251, 113, 133, 0.18);
+}
