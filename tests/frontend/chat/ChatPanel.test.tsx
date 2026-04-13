@@ -55,7 +55,10 @@ afterEach(() => {
   mountedContainer = null;
 });
 
-async function renderPanel(state: ChatPanelState): Promise<HTMLDivElement> {
+async function renderPanel(
+  state: ChatPanelState,
+  handlers: ChatPanelHandlers = noopHandlers,
+): Promise<HTMLDivElement> {
   if (!mountedContainer) {
     mountedContainer = document.createElement("div");
     document.body.append(mountedContainer);
@@ -65,7 +68,7 @@ async function renderPanel(state: ChatPanelState): Promise<HTMLDivElement> {
   await act(async () => {
     mountedRoot!.render(
       <AppProviders>
-        <ChatPanel state={state} handlers={noopHandlers} />
+        <ChatPanel state={state} handlers={handlers} />
       </AppProviders>,
     );
     await flushMicrotasks();
@@ -165,6 +168,77 @@ describe("ChatPanel", () => {
 
     await renderPanel(createBaseState());
     expect(generateButton?.disabled).toBe(true);
+  });
+
+  it("sends the composer message when pressing Enter", async () => {
+    const onSend = vi.fn();
+    const container = await renderPanel(createBaseState(), {
+      ...noopHandlers,
+      onSend,
+    });
+
+    const input = container.querySelector<HTMLTextAreaElement>('[data-chat-input="true"]');
+
+    expect(input).not.toBeNull();
+
+    await act(async () => {
+      const setValue = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set;
+      setValue?.call(input, "send with enter");
+      input!.dispatchEvent(new Event("input", { bubbles: true }));
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      input?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      await flushMicrotasks();
+    });
+
+    expect(onSend).toHaveBeenCalledWith("send with enter");
+  });
+
+  it("keeps a newline when pressing Shift+Enter", async () => {
+    const onSend = vi.fn();
+    const container = await renderPanel(createBaseState(), {
+      ...noopHandlers,
+      onSend,
+    });
+
+    const input = container.querySelector<HTMLTextAreaElement>('[data-chat-input="true"]');
+
+    expect(input).not.toBeNull();
+
+    await act(async () => {
+      const setValue = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set;
+      setValue?.call(input, "keep newline");
+      input!.dispatchEvent(new Event("input", { bubbles: true }));
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      input?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      await flushMicrotasks();
+    });
+
+    expect(onSend).not.toHaveBeenCalled();
   });
 
   it("renders thinking as a collapsed card with expandable content", async () => {
@@ -350,6 +424,27 @@ describe("ChatPanel", () => {
     expect(connectionChip?.className).not.toContain("MuiChip-outlined");
     expect(sessionChip?.className).toContain("MuiChip-filled");
     expect(sessionChip?.className).not.toContain("MuiChip-outlined");
+  });
+
+  it("animates the session status label only while streaming", async () => {
+    const container = await renderPanel({
+      ...createBaseState(),
+      sessionStatus: "streaming",
+    });
+
+    const streamingLabel = container.querySelector<HTMLElement>(
+      '[data-session-status-label="true"]',
+    );
+
+    expect(streamingLabel).not.toBeNull();
+    expect(streamingLabel?.className).toContain("chat-panel__session-status-label--streaming");
+
+    await renderPanel(createBaseState());
+
+    const idleLabel = container.querySelector<HTMLElement>('[data-session-status-label="true"]');
+
+    expect(idleLabel).not.toBeNull();
+    expect(idleLabel?.className).not.toContain("chat-panel__session-status-label--streaming");
   });
 
   it("keeps the interrupt and clear session buttons side by side", async () => {

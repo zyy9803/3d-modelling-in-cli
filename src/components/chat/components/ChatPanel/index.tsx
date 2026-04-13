@@ -91,6 +91,16 @@ export function ChatPanel(props: {
     syncComposerHeight(textareaRef.current);
   }, [composerText]);
 
+  function submitComposer(): void {
+    const text = composerText.trim();
+    if (!text) {
+      return;
+    }
+
+    void handlers.onSend(text);
+    setComposerText("");
+  }
+
   function toggleCard(cardId: string): void {
     setOpenCards((current) => ({
       ...current,
@@ -100,13 +110,7 @@ export function ChatPanel(props: {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    const text = composerText.trim();
-    if (!text) {
-      return;
-    }
-
-    void handlers.onSend(text);
-    setComposerText("");
+    submitComposer();
   }
 
   return (
@@ -178,7 +182,19 @@ export function ChatPanel(props: {
                 className="chat-panel__meta-item"
                 size="small"
                 variant="filled"
-                label={`会话状态：${formatSessionStatus(state.sessionStatus)}`}
+                label={
+                  <Box
+                    component="span"
+                    data-session-status-label="true"
+                    className={`chat-panel__session-status-label${
+                      state.sessionStatus === "streaming"
+                        ? " chat-panel__session-status-label--streaming"
+                        : ""
+                    }`}
+                  >
+                    {`会话状态：${formatSessionStatus(state.sessionStatus)}`}
+                  </Box>
+                }
               />
             </Stack>
           </Stack>
@@ -297,6 +313,12 @@ export function ChatPanel(props: {
             }}
             onChange={(event) => {
               setComposerText(event.target.value);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                submitComposer();
+              }
             }}
           />
           <Stack

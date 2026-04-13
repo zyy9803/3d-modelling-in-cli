@@ -58,10 +58,65 @@
   max-width: 100%;
 }
 
+.chat-panel__session-status-label {
+  display: inline-block;
+  font-weight: 600;
+}
+
+.chat-panel__session-status-label--streaming {
+  background-image: linear-gradient(
+    90deg,
+    #60a5fa 0%,
+    #a78bfa 28%,
+    #f59e0b 52%,
+    #10b981 76%,
+    #60a5fa 100%
+  );
+  background-size: 220% 100%;
+  background-position: 0% 50%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  will-change: background-position, filter, opacity;
+  animation:
+    chat-session-status-wave 1.9s ease-in-out infinite,
+    chat-session-status-pulse 1.4s ease-in-out infinite;
+}
+
 .chat-panel__meta-item--model {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@keyframes chat-session-status-wave {
+  from {
+    background-position: 0% 50%;
+  }
+
+  to {
+    background-position: 220% 50%;
+  }
+}
+
+@keyframes chat-session-status-pulse {
+  0%,
+  100% {
+    filter: saturate(1) brightness(0.96);
+    opacity: 0.9;
+  }
+
+  50% {
+    filter: saturate(1.18) brightness(1.08);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-panel__session-status-label--streaming {
+    animation: none;
+  }
 }
 
 .chat-panel__messages {
