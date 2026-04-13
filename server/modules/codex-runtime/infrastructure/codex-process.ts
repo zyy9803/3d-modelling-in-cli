@@ -54,15 +54,9 @@ export class CodexProcessManager extends EventEmitter {
   private async startInternal(): Promise<void> {
     try {
       await this.ensureListenPortAvailable();
-    } catch (error) {
-      this.emit('process', {
-        type: 'error',
-        error:
-          error instanceof Error
-            ? error
-            : new Error('Failed to clear codex app-server port.'),
-      } satisfies CodexProcessEvent);
-      return;
+    } catch {
+      // Best-effort cleanup on Windows: a cleanup script failure should not block
+      // the actual app-server spawn, because the port may still be free.
     }
 
     try {

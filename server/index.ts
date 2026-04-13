@@ -1,8 +1,9 @@
 import { pathToFileURL } from 'node:url';
 
-import { startServer } from './app/create-server.js';
+import { buildApp } from './app/buildApp.js';
+import { startServer } from './app/startServer.js';
 
-export { createServer, startServer } from './app/create-server.js';
+export { buildApp, startServer };
 
 const isMainModule = process.argv[1]
   ? import.meta.url === pathToFileURL(process.argv[1]).href

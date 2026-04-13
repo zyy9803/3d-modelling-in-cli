@@ -38,7 +38,7 @@ export class SessionClient {
 
     for (let attempt = 0; attempt < retries; attempt += 1) {
       try {
-        const response = await fetch(this.resolveUrl("/api/status"));
+        const response = await fetch(this.resolveUrl("/api/session"));
         return await this.parseJsonResponse<SessionStatusResponse>(response);
       } catch (error) {
         lastError =
@@ -61,7 +61,7 @@ export class SessionClient {
       throw new Error("EventSource is not available in this environment");
     }
 
-    const eventSource = new EventSource(this.resolveUrl("/api/session/stream"));
+    const eventSource = new EventSource(this.resolveUrl("/api/session/events"));
     eventSource.onmessage = (messageEvent) => {
       const event = safeParseEvent(messageEvent.data);
       if (event) {
@@ -97,7 +97,7 @@ export class SessionClient {
 
   async fetchModelFile(modelId: string): Promise<File> {
     const response = await fetch(
-      this.resolveUrl(`/api/models/${encodeURIComponent(modelId)}`),
+      this.resolveUrl(`/api/models/${encodeURIComponent(modelId)}/file`),
     );
     if (!response.ok) {
       throw new Error(`Request failed with status ${response.status}`);
@@ -139,7 +139,7 @@ export class SessionClient {
   }
 
   async generateModel(payload: SessionGenerateModelRequest): Promise<void> {
-    await this.postJson("/api/session/model-generate", payload);
+    await this.postJson("/api/session/model/generate", payload);
   }
 
   async interrupt(payload: SessionInterruptRequest): Promise<void> {
@@ -147,7 +147,7 @@ export class SessionClient {
   }
 
   async switchModel(payload: SessionModelSwitchRequest): Promise<void> {
-    await this.postJson("/api/session/model-switch", payload);
+    await this.postJson("/api/session/model/switch", payload);
   }
 
   async clearSession(): Promise<void> {
