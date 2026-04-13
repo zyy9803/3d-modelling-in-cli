@@ -319,15 +319,32 @@ function ViewerAppLayout() {
               aria-label="画布操作"
               sx={surfaceStyles}
             >
-              <Typography
-                className="selection-status"
-                data-selection-status="true"
-                variant="body2"
-                color="text.secondary"
+              <Stack
+                className="viewer-toolbar__selection"
+                data-selection-status-group="true"
+                direction="row"
+                spacing={1.5}
+                useFlexGap
+                sx={{ alignItems: "center", flexWrap: "wrap" }}
               >
-                <InfoOutlinedIcon fontSize="inherit" style={{ marginRight: 8 }} />
-                {controller.selectionStatusText}
-              </Typography>
+                <Typography
+                  className="selection-status"
+                  data-selection-status="true"
+                  variant="body2"
+                  color="text.secondary"
+                >
+                  <InfoOutlinedIcon fontSize="inherit" style={{ marginRight: 8 }} />
+                  {controller.selectionStatusText}
+                </Typography>
+                <Typography
+                  className="selection-shortcuts-hint"
+                  data-selection-shortcuts-hint="true"
+                  variant="caption"
+                  color="text.secondary"
+                >
+                  Shift 增加选区，Ctrl/Cmd 减少选区
+                </Typography>
+              </Stack>
               <Stack
                 className="viewer-toolbar__actions"
                 direction={{ xs: "column", sm: "row" }}

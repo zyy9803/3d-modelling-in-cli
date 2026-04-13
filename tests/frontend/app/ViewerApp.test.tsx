@@ -144,6 +144,22 @@ describe("ViewerApp", () => {
     );
   });
 
+  it("shows the selection shortcut hint in the viewer toolbar", async () => {
+    const root = await renderViewerApp({
+      sessionClient: createFakeSessionClient(),
+    });
+
+    const selectionGroup = root.querySelector<HTMLElement>('[data-selection-status-group="true"]');
+    const hint = root.querySelector<HTMLElement>('[data-selection-shortcuts-hint="true"]');
+
+    expect(hint?.textContent).toContain(
+      "Shift 增加选区，Ctrl/Cmd 减少选区",
+    );
+    expect(selectionGroup).not.toBeNull();
+    expect(hint?.parentElement).toBe(selectionGroup);
+    expect(getComputedStyle(selectionGroup!).flexDirection).toBe("row");
+  });
+
   it("keeps the orientation anchor mounted but empty before a model is loaded", async () => {
     const root = await renderViewerApp({
       sessionClient: createFakeSessionClient(),
