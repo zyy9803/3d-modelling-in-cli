@@ -1,36 +1,5 @@
 :root {
-  color-scheme: dark;
   font-family: "Inter", "SF Pro Display", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  color: #eff6ff;
-  background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 32%),
-    radial-gradient(circle at top right, rgba(168, 85, 247, 0.14), transparent 28%),
-    linear-gradient(180deg, #07111f 0%, #0a1323 44%, #0a1425 100%);
-  --bg-canvas: #07111f;
-  --bg-surface: rgba(10, 20, 37, 0.84);
-  --bg-surface-strong: rgba(14, 27, 49, 0.94);
-  --bg-elevated: rgba(18, 34, 59, 0.94);
-  --bg-muted: rgba(148, 163, 184, 0.08);
-  --bg-muted-strong: rgba(148, 163, 184, 0.14);
-  --border-subtle: rgba(148, 163, 184, 0.12);
-  --border-default: rgba(148, 163, 184, 0.2);
-  --border-strong: rgba(148, 163, 184, 0.28);
-  --text-primary: #eff6ff;
-  --text-secondary: #c7d7ea;
-  --text-muted: #8ea4be;
-  --text-faint: #6d829c;
-  --accent: #7c9cff;
-  --accent-strong: #98afff;
-  --accent-warm: #f5c66a;
-  --success: #4ade80;
-  --danger: #fb7185;
-  --radius-sm: 14px;
-  --radius-md: 18px;
-  --radius-lg: 24px;
-  --radius-xl: 30px;
-  --shadow-soft: 0 12px 32px rgba(2, 8, 23, 0.22);
-  --shadow-panel: 0 22px 60px rgba(2, 8, 23, 0.34);
-  --shadow-glow: 0 0 0 1px rgba(124, 156, 255, 0.12), 0 18px 60px rgba(34, 74, 170, 0.18);
   --transition-fast: 160ms ease;
   --transition-base: 220ms ease;
 }
@@ -46,9 +15,6 @@ body {
 
 body {
   margin: 0;
-  min-height: 100dvh;
-  height: 100dvh;
-  overflow: hidden;
 }
 
 button,
@@ -69,7 +35,7 @@ textarea {
 }
 
 :focus-visible {
-  outline: 2px solid rgba(124, 156, 255, 0.95);
+  outline: 2px solid rgba(37, 99, 235, 0.85);
   outline-offset: 2px;
 }
 
@@ -81,132 +47,15 @@ textarea {
   z-index: 30;
   padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(10, 20, 37, 0.96);
-  border: 1px solid rgba(124, 156, 255, 0.36);
-  color: var(--text-primary);
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #f8fafc;
   text-decoration: none;
   transition: transform var(--transition-fast);
 }
 
 .skip-link:focus-visible {
   transform: translateY(0);
-}
-
-.surface-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(148, 163, 184, 0.08);
-  color: var(--text-secondary);
-  font-size: 0.86rem;
-}
-
-.surface-badge--muted {
-  color: var(--text-muted);
-}
-
-.surface-badge--accent {
-  color: #f7fbff;
-  border-color: rgba(124, 156, 255, 0.36);
-  background: rgba(124, 156, 255, 0.16);
-}
-
-.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid transparent;
-  border-radius: 14px;
-  cursor: pointer;
-  transition:
-    transform var(--transition-fast),
-    border-color var(--transition-fast),
-    background-color var(--transition-fast),
-    color var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.button--compact {
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: 12px;
-}
-
-.button--toolbar {
-  min-width: 108px;
-  border-color: rgba(148, 163, 184, 0.18);
-  background: rgba(148, 163, 184, 0.1);
-  color: var(--text-primary);
-}
-
-.button--toolbar:hover {
-  border-color: rgba(148, 163, 184, 0.32);
-  background: rgba(148, 163, 184, 0.16);
-}
-
-.button:hover {
-  transform: translateY(-1px);
-}
-
-.button:active {
-  transform: translateY(0);
-}
-
-.button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.button--primary {
-  border-color: rgba(124, 156, 255, 0.32);
-  background: linear-gradient(180deg, rgba(129, 149, 255, 0.3), rgba(82, 112, 222, 0.3));
-  color: #f8fbff;
-  box-shadow: var(--shadow-glow);
-}
-
-.button--primary:hover {
-  border-color: rgba(152, 175, 255, 0.5);
-  background: linear-gradient(180deg, rgba(129, 149, 255, 0.4), rgba(82, 112, 222, 0.34));
-}
-
-.button--secondary {
-  border-color: var(--border-default);
-  background: rgba(148, 163, 184, 0.12);
-  color: var(--text-primary);
-}
-
-.button--secondary:hover {
-  border-color: rgba(148, 163, 184, 0.3);
-  background: rgba(148, 163, 184, 0.16);
-}
-
-.button--ghost {
-  border-color: var(--border-subtle);
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--text-secondary);
-}
-
-.button--ghost:hover {
-  border-color: var(--border-default);
-  background: rgba(148, 163, 184, 0.08);
-}
-
-.button--danger {
-  border-color: rgba(251, 113, 133, 0.3);
-  background: rgba(251, 113, 133, 0.14);
-  color: #ffe7ed;
-}
-
-.button--danger:hover {
-  border-color: rgba(251, 113, 133, 0.45);
-  background: rgba(251, 113, 133, 0.18);
 }
 
 .is-hidden {

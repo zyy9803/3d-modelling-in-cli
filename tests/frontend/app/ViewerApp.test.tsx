@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { AppProviders } from "../../../src/app/providers/AppProviders";
 import { ViewerApp } from "../../../src/app/ViewerApp";
 import type { ChatStoreState } from "../../../src/components/chat/state";
 import type { SessionStreamEvent } from "../../../src/shared/codex-session-types";
@@ -87,7 +88,11 @@ async function renderViewerApp(options: {
   }
 
   await act(async () => {
-    mountedRoot!.render(<ViewerApp {...options} />);
+    mountedRoot!.render(
+      <AppProviders>
+        <ViewerApp {...options} />
+      </AppProviders>,
+    );
     await flushMicrotasks();
   });
 
@@ -109,6 +114,22 @@ describe("ViewerApp", () => {
     expect(root.querySelector('[data-export-context="true"]')).not.toBeNull();
     expect(root.querySelector('[data-clear-selection="true"]')).not.toBeNull();
     expect(root.querySelector('[data-reset-view="true"]')).not.toBeNull();
+  });
+
+  it("uses low-emphasis text buttons in the viewer toolbar", async () => {
+    const root = await renderViewerApp({
+      sessionClient: createFakeSessionClient(),
+    });
+
+    expect(root.querySelector('[data-reset-view="true"]')?.className).toContain(
+      "MuiButton-text",
+    );
+    expect(root.querySelector('[data-export-context="true"]')?.className).toContain(
+      "MuiButton-text",
+    );
+    expect(root.querySelector('[data-clear-selection="true"]')?.className).toContain(
+      "MuiButton-text",
+    );
   });
 
   it("renders the selection status bar", async () => {
@@ -138,6 +159,62 @@ describe("ViewerApp", () => {
     });
 
     expect(root.querySelector(".app-shell--with-chat")).not.toBeNull();
+  });
+
+  it("toggles the color mode from the top bar", async () => {
+    const root = await renderViewerApp({
+      sessionClient: createFakeSessionClient(),
+    });
+
+    const shell = root.querySelector<HTMLElement>('[data-app-shell="true"]');
+    const toggle = root.querySelector<HTMLButtonElement>('[data-theme-toggle="true"]');
+
+    expect(shell?.dataset.colorMode).toBe("dark");
+    expect(toggle).not.toBeNull();
+
+    await act(async () => {
+      toggle?.click();
+      await flushMicrotasks();
+    });
+
+    expect(shell?.dataset.colorMode).toBe("light");
+  });
+
+  it("updates the split percentage when dragging the resize handle", async () => {
+    const root = await renderViewerApp({
+      sessionClient: createFakeSessionClient(),
+    });
+
+    const shell = root.querySelector<HTMLElement>('[data-app-shell="true"]');
+    const resizer = root.querySelector<HTMLElement>('[data-split-resizer="true"]');
+
+    expect(shell).not.toBeNull();
+    expect(resizer?.getAttribute("aria-valuenow")).toBe("62");
+
+    vi.spyOn(shell!, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 1200,
+      bottom: 800,
+      width: 1200,
+      height: 800,
+      toJSON: () => ({}),
+    });
+
+    await act(async () => {
+      resizer?.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, clientX: 744 }),
+      );
+      window.dispatchEvent(
+        new MouseEvent("mousemove", { bubbles: true, clientX: 840 }),
+      );
+      window.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      await flushMicrotasks();
+    });
+
+    expect(resizer?.getAttribute("aria-valuenow")).toBe("70");
   });
 
   it("fetches and loads generated models without clearing chat state", async () => {
@@ -184,6 +261,9 @@ describe("ViewerApp", () => {
     expect(root.textContent).toContain("keep this conversation");
     expect(root.textContent).toContain(
       "新 STL 已生成：/tmp/models/model_002_from_model_001.stl",
+    );
+    expect(root.querySelector('[data-file-meta="true"]')?.className).not.toContain(
+      "MuiPaper-outlined",
     );
   });
 

@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { AppProviders } from "../../../src/app/providers/AppProviders";
 import {
   ChatPanel,
   type ChatPanelHandlers,
@@ -60,7 +61,11 @@ async function renderPanel(state: ChatPanelState): Promise<HTMLDivElement> {
   }
 
   await act(async () => {
-    mountedRoot!.render(<ChatPanel state={state} handlers={noopHandlers} />);
+    mountedRoot!.render(
+      <AppProviders>
+        <ChatPanel state={state} handlers={noopHandlers} />
+      </AppProviders>,
+    );
     await flushMicrotasks();
   });
 
@@ -273,6 +278,88 @@ describe("ChatPanel", () => {
     expect(container.textContent).toContain("python edit.py");
     expect(container.textContent).toContain("/tmp/workspace");
     expect(container.textContent).toContain("context.json");
+  });
+
+  it("renders the current context summary without showing the active model name", async () => {
+    const container = await renderPanel({
+      ...createBaseState(),
+      modelLabel: "Bracket_v2.stl",
+      contextSummary: {
+        triangleCount: 128,
+        componentCount: 3,
+        orientation: "-Y",
+      },
+    });
+
+    expect(container.textContent).not.toContain("Bracket_v2.stl");
+    expect(container.textContent).toContain("128 个三角面");
+    expect(container.textContent).toContain("3 个组件");
+    expect(container.textContent).toContain("朝向 -Y");
+  });
+
+  it("shows the full Codex connection message in a tooltip on hover", async () => {
+    const container = await renderPanel({
+      ...createBaseState(),
+      connectionStatus: "failed",
+      connectionMessage: "Codex 连接失败：本地服务未启动，请检查 4178 端口。",
+    });
+
+    const trigger = container.querySelector<HTMLElement>(
+      '[data-codex-connection-trigger="true"]',
+    );
+
+    expect(container.textContent).toContain("连接失败");
+    expect(container.textContent).not.toContain("本地服务未启动");
+    expect(trigger?.getAttribute("aria-label")).toBe(
+      "Codex 连接失败：本地服务未启动，请检查 4178 端口。",
+    );
+  });
+
+  it("renders connection and session status as borderless filled chips", async () => {
+    const container = await renderPanel(createBaseState());
+
+    const connectionChip = container.querySelector<HTMLElement>(
+      '[data-codex-connection-trigger="true"] .MuiChip-root',
+    );
+    const sessionChip = container.querySelector<HTMLElement>(
+      '.chat-panel__meta .MuiChip-root',
+    );
+
+    expect(connectionChip?.className).toContain("MuiChip-filled");
+    expect(connectionChip?.className).not.toContain("MuiChip-outlined");
+    expect(sessionChip?.className).toContain("MuiChip-filled");
+    expect(sessionChip?.className).not.toContain("MuiChip-outlined");
+  });
+
+  it("keeps the interrupt and clear session buttons side by side", async () => {
+    const container = await renderPanel(createBaseState());
+
+    const headerActions = container.querySelector<HTMLElement>(".chat-panel__header-actions");
+
+    expect(headerActions).not.toBeNull();
+    expect(headerActions?.className).not.toContain("chat-panel__header-actions--stacked");
+  });
+
+  it("renders timeline cards without outlined paper borders", async () => {
+    const container = await renderPanel({
+      ...createBaseState(),
+      messages: [
+        {
+          kind: "message",
+          id: "assistant-borderless",
+          role: "assistant",
+          text: "borderless card",
+          status: "completed",
+        },
+      ],
+    });
+
+    const messageCard = container.querySelector<HTMLElement>(
+      '[data-message-id="assistant-borderless"]',
+    );
+
+    expect(messageCard?.className).toContain("MuiPaper-root");
+    expect(messageCard?.className).not.toContain("MuiPaper-outlined");
   });
 
   it("hides streaming command execution cards when command approval is pending", async () => {

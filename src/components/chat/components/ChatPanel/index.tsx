@@ -1,6 +1,24 @@
 import "./index.scss";
 
 import {
+  Box,
+  Button,
+  ButtonBase,
+  Chip,
+  Paper,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
+import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
+import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
+import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
+import PauseCircleOutlineRoundedIcon from "@mui/icons-material/PauseCircleOutlineRounded";
+import SendRoundedIcon from "@mui/icons-material/SendRounded";
+import { type SxProps, type Theme } from "@mui/material/styles";
+import {
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -58,23 +76,20 @@ export function ChatPanel(props: {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [composerText, setComposerText] = useState("");
   const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
+  const theme = useTheme();
 
   const visibleMessages = useMemo(
     () => filterVisibleTimelineEntries(state),
     [state],
   );
+  const fullConnectionStatus = formatConnectionStatus(
+    state.connectionStatus,
+    state.connectionMessage,
+  );
 
   useLayoutEffect(() => {
     syncComposerHeight(textareaRef.current);
   }, [composerText]);
-
-  useEffect(() => {
-    if (!state.pendingDecision) {
-      return;
-    }
-
-    setOpenCards((current) => current);
-  }, [state.pendingDecision]);
 
   function toggleCard(cardId: string): void {
     setOpenCards((current) => ({
@@ -95,36 +110,94 @@ export function ChatPanel(props: {
   }
 
   return (
-    <aside
+    <Paper
+      component="aside"
       className="chat-panel"
       data-chat-panel="true"
       data-session-status={state.sessionStatus}
       data-connection-status={state.connectionStatus}
+      variant="outlined"
+      sx={{
+        backgroundColor: alpha(theme.palette.background.paper, theme.palette.mode === "dark" ? 0.94 : 0.98),
+        boxShadow:
+          theme.palette.mode === "dark"
+            ? "0 14px 32px rgba(15, 23, 42, 0.2)"
+            : "0 12px 24px rgba(148, 163, 184, 0.12)",
+      }}
     >
-      <header className="chat-panel__header">
-        <div className="chat-panel__header-main">
-          <div className="chat-panel__status-row">
-            <span
-              className={`chat-light chat-light--${state.connectionStatus}`}
-              data-codex-connection-light="true"
-            />
-            <span data-codex-connection-message="true">
-              {formatConnectionStatus(
-                state.connectionStatus,
-                state.connectionMessage,
-              )}
-            </span>
-          </div>
-          <div className="chat-panel__meta">
-            <span className="chat-panel__meta-item">
-              {`会话状态：${formatSessionStatus(state.sessionStatus)}`}
-            </span>
-          </div>
-        </div>
-        <div className="chat-panel__header-actions">
-          <button
-            className="button button--ghost button--compact"
+      <Box
+        component="header"
+        className="chat-panel__header"
+        sx={{
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          backgroundColor: alpha(theme.palette.background.paper, 0.46),
+        }}
+      >
+        <Stack className="chat-panel__header-main" spacing={1.25}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            sx={{ alignItems: { xs: "flex-start", sm: "center" } }}
+          >
+            <Tooltip title={fullConnectionStatus} arrow placement="top">
+              <Box component="span" data-codex-connection-trigger="true">
+                <Chip
+                  className="chat-panel__status-row"
+                  variant="filled"
+                  size="small"
+                  label={
+                    <Box
+                      component="span"
+                      sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
+                    >
+                      <span
+                        className={`chat-light chat-light--${state.connectionStatus}`}
+                        data-codex-connection-light="true"
+                      />
+                      <span data-codex-connection-message="true">
+                        {formatConnectionStatusLabel(state.connectionStatus)}
+                      </span>
+                    </Box>
+                  }
+                />
+              </Box>
+            </Tooltip>
+            <Stack
+              className="chat-panel__meta"
+              direction="row"
+              spacing={1}
+              useFlexGap
+              sx={{ flexWrap: "wrap" }}
+            >
+              <Chip
+                className="chat-panel__meta-item"
+                size="small"
+                variant="filled"
+                label={`会话状态：${formatSessionStatus(state.sessionStatus)}`}
+              />
+            </Stack>
+          </Stack>
+          <Stack
+            direction="row"
+            spacing={1}
+            useFlexGap
+            className="chat-panel__context-summary"
+            sx={{ flexWrap: "wrap" }}
+          >
+            <Chip size="small" label={`${state.contextSummary.triangleCount} 个三角面`} />
+            <Chip size="small" label={`${state.contextSummary.componentCount} 个组件`} />
+            <Chip size="small" label={`朝向 ${state.contextSummary.orientation}`} />
+          </Stack>
+        </Stack>
+        <Stack
+          className="chat-panel__header-actions"
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+        >
+          <Button
             type="button"
+            variant="text"
+            startIcon={<PauseCircleOutlineRoundedIcon />}
             data-interrupt-turn="true"
             disabled={state.sessionStatus !== "streaming"}
             onClick={() => {
@@ -132,28 +205,44 @@ export function ChatPanel(props: {
             }}
           >
             中断
-          </button>
-          <button
-            className="button button--ghost button--compact"
+          </Button>
+          <Button
             type="button"
+            variant="text"
+            color="inherit"
             data-clear-session="true"
             onClick={() => {
               void handlers.onClearSession();
             }}
           >
             清空会话
-          </button>
-        </div>
-      </header>
+          </Button>
+        </Stack>
+      </Box>
 
-      <section className="chat-panel__messages">
+      <Box className="chat-panel__messages">
         {visibleMessages.length === 0 && !state.pendingDecision ? (
-          <div className="chat-panel__empty">
-            <strong>等待第一条指令</strong>
-            <span>
+          <Paper
+            className="chat-panel__empty"
+            variant="outlined"
+            sx={{
+              borderStyle: "solid",
+              borderColor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.26 : 0.16),
+              background:
+                theme.palette.mode === "dark"
+                  ? `linear-gradient(180deg, ${alpha(theme.palette.primary.main, 0.12)}, ${alpha(theme.palette.background.paper, 0.96)})`
+                  : `linear-gradient(180deg, ${alpha(theme.palette.primary.main, 0.06)}, ${alpha(theme.palette.background.paper, 0.98)})`,
+              boxShadow:
+                theme.palette.mode === "dark"
+                  ? "inset 0 1px 0 rgba(255,255,255,0.03), 0 10px 26px rgba(15, 23, 42, 0.16)"
+                  : "0 10px 22px rgba(148, 163, 184, 0.12)",
+            }}
+          >
+            <Typography variant="subtitle2">等待第一条指令</Typography>
+            <Typography variant="body2" color="text.secondary">
               还没有消息。导入模型并选中局部区域后，就可以开始和 Codex 协作。
-            </span>
-          </div>
+            </Typography>
+          </Paper>
         ) : null}
 
         {visibleMessages.map((message) =>
@@ -182,34 +271,49 @@ export function ChatPanel(props: {
             }}
           />
         ) : null}
-      </section>
+      </Box>
 
-      <form
+      <Box
+        component="form"
         className="chat-panel__input"
         data-chat-form="true"
         onSubmit={handleSubmit}
       >
-        <div className="chat-panel__composer-surface">
-          <textarea
-            ref={textareaRef}
-            data-chat-input="true"
+        <Paper className="chat-panel__composer-surface" variant="outlined">
+          <TextField
+            inputRef={textareaRef}
             id="chat-panel-input"
-            rows={1}
+            multiline
+            minRows={3}
             value={composerText}
             placeholder="描述你希望 Codex 在当前选区执行的修改"
             aria-label="发送给 Codex 的修改说明"
+            fullWidth
+            variant="outlined"
+            size="small"
             disabled={
               state.sessionStatus === "waiting_decision" ||
               state.sessionStatus === "resuming"
             }
+            slotProps={{
+              htmlInput: {
+                "data-chat-input": "true",
+              },
+            }}
             onChange={(event) => {
               setComposerText(event.target.value);
             }}
           />
-          <div className="chat-panel__composer-actions">
-            <button
-              className="button button--ghost button--compact"
+          <Stack
+            className="chat-panel__composer-actions"
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+          >
+            <Button
               type="button"
+              variant="text"
+              color="inherit"
+              startIcon={<AutoAwesomeRoundedIcon />}
               data-generate-model="true"
               disabled={
                 state.draft.status !== "ready" && state.draft.status !== "failed"
@@ -219,10 +323,13 @@ export function ChatPanel(props: {
               }}
             >
               {formatGenerateButtonLabel(state.draft.status)}
-            </button>
-            <button
-              className="button button--composer-send"
+            </Button>
+            <Button
+              className="button--composer-send"
               type="submit"
+              variant="contained"
+              color="primary"
+              endIcon={<SendRoundedIcon />}
               data-chat-send="true"
               disabled={
                 state.sessionStatus === "waiting_decision" ||
@@ -230,11 +337,11 @@ export function ChatPanel(props: {
               }
             >
               {state.sessionStatus === "streaming" ? "追加" : "发送"}
-            </button>
-          </div>
-        </div>
-      </form>
-    </aside>
+            </Button>
+          </Stack>
+        </Paper>
+      </Box>
+    </Paper>
   );
 }
 
@@ -244,18 +351,24 @@ function MessageEntry(props: {
   onToggle: (cardId: string) => void;
 }) {
   const { isOpen, message, onToggle } = props;
+  const theme = useTheme();
 
   if (message.role === "reasoning" && message.text.trim().length === 0) {
     return null;
   }
 
   const title = message.title ? (
-    <span className="chat-message__title">{message.title}</span>
+    <Typography component="span" className="chat-message__title" variant="subtitle2">
+      {message.title}
+    </Typography>
   ) : null;
   const status = message.status ? (
-    <span className="chat-message__status">
-      {formatEntryStatus(message.status)}
-    </span>
+    <Chip
+      className="chat-message__status"
+      size="small"
+      variant="outlined"
+      label={formatEntryStatus(message.status)}
+    />
   ) : null;
 
   if (message.role === "reasoning") {
@@ -275,19 +388,28 @@ function MessageEntry(props: {
   }
 
   return (
-    <article
+    <Paper
+      component="article"
       className={`chat-message chat-message--${message.role}`}
       data-message-id={message.id}
+      sx={getEntrySurfaceStyles(theme, message.role)}
     >
-      <div className="chat-message__header">
-        <span className="chat-message__role">{labelForRole(message.role)}</span>
-        <div className="chat-message__meta">
+      <Box className="chat-message__header">
+        <Chip
+          className="chat-message__role"
+          size="small"
+          variant="outlined"
+          label={labelForRole(message.role)}
+        />
+        <Box className="chat-message__meta">
           {title}
           {status}
-        </div>
-      </div>
-      <div className="chat-message__text">{message.text || " "}</div>
-    </article>
+        </Box>
+      </Box>
+      <Typography className="chat-message__text" variant="body2">
+        {message.text || " "}
+      </Typography>
+    </Paper>
   );
 }
 
@@ -297,11 +419,19 @@ function ActivityEntry(props: {
   onToggle: (cardId: string) => void;
 }) {
   const { activity, isOpen, onToggle } = props;
-  const title = <span className="chat-message__title">{activity.title}</span>;
+  const theme = useTheme();
+  const title = (
+    <Typography component="span" className="chat-message__title" variant="subtitle2">
+      {activity.title}
+    </Typography>
+  );
   const status = activity.status ? (
-    <span className="chat-message__status">
-      {formatEntryStatus(activity.status)}
-    </span>
+    <Chip
+      className="chat-message__status"
+      size="small"
+      variant="outlined"
+      label={formatEntryStatus(activity.status)}
+    />
   ) : null;
   const fields = renderFactGrid("chat-message", activity.fields);
   const text =
@@ -311,20 +441,25 @@ function ActivityEntry(props: {
 
   if (!fields && !text) {
     return (
-      <article
+      <Paper
+        component="article"
         className={`chat-message chat-message--activity chat-message--activity-${activity.activityKind}`}
         data-message-id={activity.id}
+        sx={getEntrySurfaceStyles(theme, activity.activityKind)}
       >
-        <div className="chat-message__header">
-          <span className="chat-message__role">
-            {labelForActivityKind(activity.activityKind)}
-          </span>
-          <div className="chat-message__meta">
+        <Box className="chat-message__header">
+          <Chip
+            className="chat-message__role"
+            size="small"
+            variant="outlined"
+            label={labelForActivityKind(activity.activityKind)}
+          />
+          <Box className="chat-message__meta">
             {title}
             {status}
-          </div>
-        </div>
-      </article>
+          </Box>
+        </Box>
+      </Paper>
     );
   }
 
@@ -366,18 +501,24 @@ function CollapsibleCard(props: {
     status,
     title,
   } = props;
+  const theme = useTheme();
 
   return (
-    <article
+    <Paper
+      component="article"
       className={`${className} chat-message--collapsible${
         isOpen ? " is-open" : ""
       }`}
       data-message-id={id}
       data-collapsible-card="true"
       data-collapsible-open={String(isOpen)}
+      sx={
+        className.includes("activity")
+          ? getEntrySurfaceStyles(theme, extractActivityTone(className))
+          : getEntrySurfaceStyles(theme, "reasoning")
+      }
     >
-      <button
-        type="button"
+      <ButtonBase
         className="chat-message__summary"
         data-collapsible-toggle="true"
         aria-expanded={isOpen}
@@ -386,21 +527,26 @@ function CollapsibleCard(props: {
         }}
       >
         <span className="chat-message__summary-content">
-          <span className="chat-message__role">{roleLabel}</span>
-          <span className="chat-message__meta">
-            {title}
-            {status}
+          <span className="chat-message__summary-main">
+            <Chip className="chat-message__role" size="small" variant="outlined" label={roleLabel} />
+            <span className="chat-message__meta">
+              {title}
+              {status}
+            </span>
           </span>
+          <ExpandMoreRoundedIcon
+            className={`chat-message__summary-icon${isOpen ? " is-open" : ""}`}
+          />
         </span>
-      </button>
-      <div
+      </ButtonBase>
+      <Box
         className="chat-message__body"
         data-collapsible-body="true"
         hidden={!isOpen}
       >
-        <div className="chat-message__body-scroll">{children}</div>
-      </div>
-    </article>
+        <Box className="chat-message__body-scroll">{children}</Box>
+      </Box>
+    </Paper>
   );
 }
 
@@ -412,6 +558,7 @@ function DecisionCard(props: {
   const [questionStates, setQuestionStates] = useState<
     Record<string, QuestionSelectionState>
   >({});
+  const theme = useTheme();
 
   useEffect(() => {
     const nextState = Object.fromEntries(
@@ -461,18 +608,44 @@ function DecisionCard(props: {
   }
 
   return (
-    <section
+    <Paper
+      component="section"
       className="chat-decision"
       data-decision-card="true"
       data-decision-id={decision.id}
+      variant="outlined"
+      sx={{
+        backgroundColor: alpha(theme.palette.background.paper, theme.palette.mode === "dark" ? 0.72 : 0.94),
+        borderColor: alpha(theme.palette.warning.main, 0.2),
+      }}
     >
-      <header className="chat-decision__header">
-        <p className="chat-decision__eyebrow">需要你的决策</p>
-        <h3>{decision.title}</h3>
-        <p>{decision.body}</p>
-      </header>
+      <Stack className="chat-decision__header" direction="row" spacing={1.5}>
+        <Box
+          sx={{
+            width: 40,
+            height: 40,
+            borderRadius: 1.5,
+            display: "grid",
+            placeItems: "center",
+            bgcolor: alpha(theme.palette.warning.main, 0.12),
+            color: "warning.main",
+            flex: "0 0 auto",
+          }}
+        >
+          <FactCheckRoundedIcon fontSize="small" />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography className="chat-decision__eyebrow" variant="caption">
+            需要你的决策
+          </Typography>
+          <Typography variant="h6">{decision.title}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {decision.body}
+          </Typography>
+        </Box>
+      </Stack>
       {renderFactGrid("chat-decision", getDecisionInfoFields(decision))}
-      <div className="chat-decision__questions">
+      <Box className="chat-decision__questions">
         {decision.questions.map((question) => {
           const selection = questionStates[question.id] ?? {
             selectedAnswer: null,
@@ -485,12 +658,16 @@ function DecisionCard(props: {
               className="chat-decision__question"
               data-question-id={question.id}
             >
-              <legend>{question.header}</legend>
-              <p>{question.question}</p>
-              <div className="chat-decision__option-list">
+              <Typography component="legend" variant="subtitle2">
+                {question.header}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {question.question}
+              </Typography>
+              <Box className="chat-decision__option-list">
                 {question.options.length > 0 ? (
                   question.options.map((option) => (
-                    <button
+                    <Button
                       key={option.value}
                       type="button"
                       className={`chat-decision__option${
@@ -501,6 +678,13 @@ function DecisionCard(props: {
                       data-decision-option="true"
                       data-question-id={question.id}
                       data-answer={option.value}
+                      variant={
+                        selection.selectedAnswer === option.value
+                          ? "contained"
+                          : "outlined"
+                      }
+                      color={selection.selectedAnswer === option.value ? "primary" : "inherit"}
+                      fullWidth
                       onClick={() => {
                         updateQuestion(question.id, () => ({
                           selectedAnswer: option.value,
@@ -508,24 +692,32 @@ function DecisionCard(props: {
                         }));
                       }}
                     >
-                      <strong>{option.label}</strong>
-                      <span>{option.description}</span>
-                    </button>
+                      <Box sx={{ display: "grid", gap: 0.5, textAlign: "left", width: "100%" }}>
+                        <Typography component="strong" variant="body2">
+                          {option.label}
+                        </Typography>
+                        <Typography component="span" variant="caption" color="text.secondary">
+                          {option.description}
+                        </Typography>
+                      </Box>
+                    </Button>
                   ))
                 ) : (
-                  <div className="chat-decision__hint">
+                  <Typography className="chat-decision__hint" variant="body2" color="text.secondary">
                     没有可选项，请填写自定义答案。
-                  </div>
+                  </Typography>
                 )}
-              </div>
+              </Box>
 
               {question.allowOther ? (
-                <label className="chat-decision__other">
-                  <span>其他答案</span>
-                  <input
-                    type="text"
+                <Box className="chat-decision__other">
+                  <Typography variant="body2" color="text.secondary">
+                    其他答案
+                  </Typography>
+                  <TextField
                     data-other-answer="true"
                     placeholder="输入其他答案"
+                    size="small"
                     value={selection.otherAnswer}
                     onChange={(event) => {
                       updateQuestion(question.id, () => ({
@@ -534,23 +726,23 @@ function DecisionCard(props: {
                       }));
                     }}
                   />
-                </label>
+                </Box>
               ) : null}
             </fieldset>
           );
         })}
-      </div>
-      <footer className="chat-decision__footer">
-        <button
-          className="button button--primary"
+      </Box>
+      <Box className="chat-decision__footer">
+        <Button
           type="button"
+          variant="contained"
           data-decision-submit="true"
           onClick={handleSubmit}
         >
           提交决策
-        </button>
-      </footer>
-    </section>
+        </Button>
+      </Box>
+    </Paper>
   );
 }
 
@@ -583,6 +775,52 @@ function renderFactGrid(
       ))}
     </dl>
   );
+}
+
+function getEntrySurfaceStyles(theme: Theme, tone: string): SxProps<Theme> {
+  const paletteMap: Record<string, string> = {
+    user: theme.palette.warning.main,
+    assistant: theme.palette.primary.main,
+    system: theme.palette.grey[500],
+    reasoning: theme.palette.info.main,
+    activity: theme.palette.secondary.main,
+    command_execution: theme.palette.warning.main,
+    tool_call: theme.palette.info.main,
+    plan: theme.palette.secondary.main,
+    approval: theme.palette.error.main,
+  };
+  const toneColor = paletteMap[tone] ?? theme.palette.secondary.main;
+  const isDark = theme.palette.mode === "dark";
+  const toneBackground =
+    tone === "user"
+      ? alpha(toneColor, isDark ? 0.2 : 0.12)
+      : tone === "assistant"
+        ? alpha(toneColor, isDark ? 0.18 : 0.1)
+        : alpha(toneColor, isDark ? 0.12 : 0.07);
+
+  return {
+    background:
+      isDark
+        ? `linear-gradient(180deg, ${toneBackground}, ${alpha(theme.palette.background.paper, 0.98)})`
+        : `linear-gradient(180deg, ${alpha(toneColor, 0.08)}, ${alpha(theme.palette.background.paper, 0.98)})`,
+    borderColor: alpha(toneColor, isDark ? 0.3 : 0.18),
+    boxShadow: isDark
+      ? "0 10px 24px rgba(15, 23, 42, 0.12)"
+      : "0 8px 18px rgba(148, 163, 184, 0.08)",
+    "& .chat-message__role": {
+      borderColor: alpha(toneColor, isDark ? 0.26 : 0.16),
+      backgroundColor: alpha(toneColor, isDark ? 0.14 : 0.08),
+    },
+    "& .chat-message__status": {
+      borderColor: alpha(toneColor, isDark ? 0.26 : 0.16),
+      backgroundColor: alpha(toneColor, isDark ? 0.12 : 0.05),
+    },
+  };
+}
+
+function extractActivityTone(className: string): string {
+  const match = className.match(/chat-message--activity-([a-z_]+)/);
+  return match?.[1] ?? "activity";
 }
 
 function getDecisionInfoFields(decision: SessionDecisionCard): SessionInfoField[] {
@@ -679,6 +917,23 @@ function formatConnectionStatus(
       return message || "Codex 连接失败";
     default:
       return message;
+  }
+}
+
+function formatConnectionStatusLabel(
+  status: ChatPanelState["connectionStatus"],
+): string {
+  switch (status) {
+    case "connected":
+      return "已连接";
+    case "starting":
+      return "连接中";
+    case "disconnected":
+      return "已断开";
+    case "failed":
+      return "连接失败";
+    default:
+      return status;
   }
 }
 
