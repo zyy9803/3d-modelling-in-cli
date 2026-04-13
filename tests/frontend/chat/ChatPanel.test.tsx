@@ -1,4 +1,6 @@
 import { act } from "react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -73,6 +75,24 @@ async function renderPanel(state: ChatPanelState): Promise<HTMLDivElement> {
 }
 
 describe("ChatPanel", () => {
+  it("does not use left accent pseudo-elements for chat cards", () => {
+    const styles = readFileSync(
+      resolve(process.cwd(), "src/components/chat/components/ChatPanel/index.scss"),
+      "utf8",
+    );
+
+    expect(styles).not.toContain(".chat-message::before");
+    expect(styles).not.toContain(".chat-message--user::before");
+    expect(styles).not.toContain(".chat-message--assistant::before");
+    expect(styles).not.toContain(".chat-message--system::before");
+    expect(styles).not.toContain(".chat-message--reasoning::before");
+    expect(styles).not.toContain(".chat-message--activity::before");
+    expect(styles).not.toContain(".chat-message--activity-command_execution::before");
+    expect(styles).not.toContain(".chat-message--activity-tool_call::before");
+    expect(styles).not.toContain(".chat-message--activity-plan::before");
+    expect(styles).not.toContain(".chat-message--activity-approval::before");
+  });
+
   it("does not render an empty thinking card when reasoning has no text", async () => {
     const container = await renderPanel({
       ...createBaseState(),

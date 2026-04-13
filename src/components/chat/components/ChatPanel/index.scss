@@ -122,30 +122,14 @@
   padding: 14px 15px;
 }
 
-.chat-message::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: transparent;
-}
-
 .chat-message--user {
   align-self: flex-end;
   border-radius: 16px 16px 10px 16px;
 }
 
-.chat-message--user::before {
-  background: rgba(245, 198, 106, 0.64);
-}
-
 .chat-message--assistant {
   align-self: flex-start;
   border-radius: 16px 16px 16px 10px;
-}
-
-.chat-message--assistant::before {
-  background: rgba(124, 156, 255, 0.66);
 }
 
 .chat-message--system,
@@ -158,10 +142,6 @@
 
 .chat-message--system {
   background: rgba(148, 163, 184, 0.06);
-}
-
-.chat-message--system::before {
-  background: rgba(148, 163, 184, 0.5);
 }
 
 .chat-message__header {
@@ -323,30 +303,6 @@
   font-family: "SFMono-Regular", "Consolas", monospace;
   font-size: 0.88rem;
   line-height: 1.55;
-}
-
-.chat-message--reasoning::before {
-  background: rgba(96, 165, 250, 0.62);
-}
-
-.chat-message--activity::before {
-  background: rgba(129, 140, 248, 0.62);
-}
-
-.chat-message--activity-command_execution::before {
-  background: rgba(245, 198, 106, 0.64);
-}
-
-.chat-message--activity-tool_call::before {
-  background: rgba(56, 189, 248, 0.64);
-}
-
-.chat-message--activity-plan::before {
-  background: rgba(167, 139, 250, 0.64);
-}
-
-.chat-message--activity-approval::before {
-  background: rgba(251, 113, 133, 0.66);
 }
 
 .chat-decision {
