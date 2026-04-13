@@ -78,4 +78,32 @@ describe('buildApp', () => {
 
     await app.close();
   });
+
+  it('applies CORS headers to session event streams', async () => {
+    const session = createSessionStub();
+    const app = buildApp({ sessionController: session });
+
+    await app.ready();
+    await app.listen({ host: '127.0.0.1', port: 0 });
+
+    const address = app.server.address();
+    if (!address || typeof address === 'string') {
+      throw new Error('Expected Fastify server to listen on a TCP port.');
+    }
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/session/events`, {
+      headers: {
+        origin: 'http://localhost:5174',
+        accept: 'text/event-stream',
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('access-control-allow-origin')).toBe(
+      'http://localhost:5174',
+    );
+
+    await response.body?.cancel();
+    await app.close();
+  });
 });

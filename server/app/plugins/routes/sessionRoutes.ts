@@ -21,7 +21,13 @@ import { openSse, writeSseEvent } from '../transport/sseReply.js';
 export const sessionRoutes: FastifyPluginAsync = async (app) => {
   app.get('/api/session', async () => app.appContext.session.getSnapshot());
 
-  app.get('/api/session/events', async (_request, reply) => {
+  app.get('/api/session/events', async (request, reply) => {
+    const origin = request.headers.origin;
+    if (typeof origin === 'string' && origin.length > 0) {
+      reply.raw.setHeader('Access-Control-Allow-Origin', origin);
+      reply.raw.setHeader('Vary', 'Origin');
+    }
+
     openSse(reply);
 
     const unsubscribe = app.appContext.session.subscribe((event) => {
