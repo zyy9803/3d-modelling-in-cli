@@ -17,12 +17,12 @@ type AppThemeModeContextValue = {
 };
 
 const AppThemeModeContext = createContext<AppThemeModeContextValue>({
-  mode: "dark",
+  mode: "light",
   toggleColorMode: () => {},
 });
 
 export function AppProviders(props: PropsWithChildren) {
-  const [mode, setMode] = useState<PaletteMode>("dark");
+  const [mode, setMode] = useState<PaletteMode>("light");
   const theme = useMemo(() => createAppTheme(mode), [mode]);
   const value = useMemo<AppThemeModeContextValue>(
     () => ({

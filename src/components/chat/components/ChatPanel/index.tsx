@@ -129,6 +129,7 @@ export function ChatPanel(props: {
         component="header"
         className="chat-panel__header"
         sx={{
+          alignItems: "center",
           borderBottom: `1px solid ${theme.palette.divider}`,
           backgroundColor: alpha(theme.palette.background.paper, 0.46),
         }}
@@ -140,7 +141,11 @@ export function ChatPanel(props: {
             sx={{ alignItems: { xs: "flex-start", sm: "center" } }}
           >
             <Tooltip title={fullConnectionStatus} arrow placement="top">
-              <Box component="span" data-codex-connection-trigger="true">
+              <Box
+                component="div"
+                data-codex-connection-trigger="true"
+                sx={{ display: "flex", alignItems: "center", minHeight: 32 }}
+              >
                 <Chip
                   className="chat-panel__status-row"
                   variant="filled"
@@ -167,7 +172,7 @@ export function ChatPanel(props: {
               direction="row"
               spacing={1}
               useFlexGap
-              sx={{ flexWrap: "wrap" }}
+              sx={{ flexWrap: "wrap", alignItems: "center", minHeight: 32 }}
             >
               <Chip
                 className="chat-panel__meta-item"
@@ -177,22 +182,12 @@ export function ChatPanel(props: {
               />
             </Stack>
           </Stack>
-          <Stack
-            direction="row"
-            spacing={1}
-            useFlexGap
-            className="chat-panel__context-summary"
-            sx={{ flexWrap: "wrap" }}
-          >
-            <Chip size="small" label={`${state.contextSummary.triangleCount} 个三角面`} />
-            <Chip size="small" label={`${state.contextSummary.componentCount} 个组件`} />
-            <Chip size="small" label={`朝向 ${state.contextSummary.orientation}`} />
-          </Stack>
         </Stack>
         <Stack
           className="chat-panel__header-actions"
           direction={{ xs: "column", sm: "row" }}
           spacing={1}
+          sx={{ alignItems: "center" }}
         >
           <Button
             type="button"

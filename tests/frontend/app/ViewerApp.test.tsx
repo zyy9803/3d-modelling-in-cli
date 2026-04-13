@@ -39,8 +39,10 @@ type FakeSessionClient = {
 type FakeViewport = {
   mounted: boolean;
   loadedFiles: File[];
+  themeModes: Array<"light" | "dark">;
   mount: (container: HTMLElement, orientationRoot?: HTMLElement) => void;
   loadFile: (file: File) => Promise<void>;
+  setThemeMode: (mode: "light" | "dark") => void;
   resetView: () => void;
   clearSelection: () => void;
   exportContext: () => null;
@@ -169,7 +171,7 @@ describe("ViewerApp", () => {
     const shell = root.querySelector<HTMLElement>('[data-app-shell="true"]');
     const toggle = root.querySelector<HTMLButtonElement>('[data-theme-toggle="true"]');
 
-    expect(shell?.dataset.colorMode).toBe("dark");
+    expect(shell?.dataset.colorMode).toBe("light");
     expect(toggle).not.toBeNull();
 
     await act(async () => {
@@ -177,7 +179,26 @@ describe("ViewerApp", () => {
       await flushMicrotasks();
     });
 
-    expect(shell?.dataset.colorMode).toBe("light");
+    expect(shell?.dataset.colorMode).toBe("dark");
+  });
+
+  it("syncs the current color mode to the viewport", async () => {
+    const viewport = createFakeViewport();
+    const root = await renderViewerApp({
+      sessionClient: createFakeSessionClient(),
+      createViewport: () => viewport,
+    });
+
+    const toggle = root.querySelector<HTMLButtonElement>('[data-theme-toggle="true"]');
+
+    expect(viewport.themeModes).toEqual(["light"]);
+
+    await act(async () => {
+      toggle?.click();
+      await flushMicrotasks();
+    });
+
+    expect(viewport.themeModes).toEqual(["light", "dark"]);
   });
 
   it("updates the split percentage when dragging the resize handle", async () => {
@@ -534,6 +555,7 @@ function createFakeViewport(
   const state = {
     mounted: false,
     loadedFiles: [] as File[],
+    themeModes: [] as Array<"light" | "dark">,
   };
 
   return {
@@ -542,6 +564,9 @@ function createFakeViewport(
     },
     get loadedFiles() {
       return state.loadedFiles;
+    },
+    get themeModes() {
+      return state.themeModes;
     },
     mount() {
       state.mounted = true;
@@ -554,6 +579,9 @@ function createFakeViewport(
       state.loadedFiles.push(file);
     },
     resetView() {},
+    setThemeMode(mode: "light" | "dark") {
+      state.themeModes.push(mode);
+    },
     clearSelection() {},
     exportContext() {
       return null;

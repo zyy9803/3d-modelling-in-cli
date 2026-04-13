@@ -24,7 +24,7 @@
 
 .chat-panel__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
@@ -36,6 +36,7 @@
 
 .chat-panel__header-actions {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
@@ -61,10 +62,6 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.chat-panel__context-summary {
-  min-width: 0;
 }
 
 .chat-panel__messages {

@@ -280,7 +280,7 @@ describe("ChatPanel", () => {
     expect(container.textContent).toContain("context.json");
   });
 
-  it("renders the current context summary without showing the active model name", async () => {
+  it("hides the header context summary tags and active model name", async () => {
     const container = await renderPanel({
       ...createBaseState(),
       modelLabel: "Bracket_v2.stl",
@@ -292,9 +292,10 @@ describe("ChatPanel", () => {
     });
 
     expect(container.textContent).not.toContain("Bracket_v2.stl");
-    expect(container.textContent).toContain("128 个三角面");
-    expect(container.textContent).toContain("3 个组件");
-    expect(container.textContent).toContain("朝向 -Y");
+    expect(container.textContent).not.toContain("128 个三角面");
+    expect(container.textContent).not.toContain("3 个组件");
+    expect(container.textContent).not.toContain("朝向 -Y");
+    expect(container.querySelector(".chat-panel__context-summary")).toBeNull();
   });
 
   it("shows the full Codex connection message in a tooltip on hover", async () => {
@@ -338,6 +339,28 @@ describe("ChatPanel", () => {
 
     expect(headerActions).not.toBeNull();
     expect(headerActions?.className).not.toContain("chat-panel__header-actions--stacked");
+  });
+
+  it("vertically centers the status chips and header action buttons", async () => {
+    const container = await renderPanel(createBaseState());
+
+    const header = container.querySelector<HTMLElement>(".chat-panel__header");
+    const headerActions = container.querySelector<HTMLElement>(".chat-panel__header-actions");
+    const connectionTrigger = container.querySelector<HTMLElement>(
+      '[data-codex-connection-trigger="true"]',
+    );
+    const sessionMeta = container.querySelector<HTMLElement>(".chat-panel__meta");
+
+    expect(header).not.toBeNull();
+    expect(headerActions).not.toBeNull();
+    expect(connectionTrigger).not.toBeNull();
+    expect(sessionMeta).not.toBeNull();
+    expect(getComputedStyle(header!).alignItems).toBe("center");
+    expect(getComputedStyle(headerActions!).alignItems).toBe("center");
+    expect(connectionTrigger?.tagName).toBe("DIV");
+    expect(sessionMeta?.tagName).toBe("DIV");
+    expect(getComputedStyle(connectionTrigger!).minHeight).toBe("32px");
+    expect(getComputedStyle(sessionMeta!).minHeight).toBe("32px");
   });
 
   it("renders timeline cards without outlined paper borders", async () => {

@@ -28,8 +28,10 @@ import {
 import type { SessionStreamEvent } from "../../shared/codex-session-types";
 import {
   StlViewport,
+  type ViewportThemeMode,
   type ViewportSelectionSummary,
 } from "../../components/viewer/core";
+import { useAppThemeMode } from "../providers/AppProviders";
 
 const SESSION_ID = "sess_main";
 
@@ -58,6 +60,7 @@ export type ViewportLike = Pick<
   | "mount"
   | "loadFile"
   | "resetView"
+  | "setThemeMode"
   | "clearSelection"
   | "exportContext"
   | "buildChatPayload"
@@ -110,6 +113,7 @@ export type ViewerAppController = {
 export function useViewerAppController(
   options: ViewerAppOptions = {},
 ): ViewerAppController {
+  const { mode } = useAppThemeMode();
   const sessionClient = useMemo(
     () => options.sessionClient ?? new SessionClient(),
     [options.sessionClient],
@@ -139,7 +143,7 @@ export function useViewerAppController(
       return;
     }
 
-    const viewport = createViewport(options.createViewport, (summary) => {
+    const viewport = createViewport(options.createViewport, mode, (summary) => {
       setSelectionSummary(summary);
       syncChatContextSummary(viewportRef.current, dispatch);
     });
@@ -156,6 +160,10 @@ export function useViewerAppController(
       viewportRef.current = null;
     };
   }, [options.createViewport]);
+
+  useEffect(() => {
+    viewportRef.current?.setThemeMode(mode);
+  }, [mode]);
 
   useEffect(() => {
     activeModelIdRef.current = chatState.activeModelId;
@@ -511,6 +519,7 @@ export function useViewerAppController(
 
 function createViewport(
   createViewportImpl: (() => ViewportLike) | undefined,
+  themeMode: ViewportThemeMode,
   onSelectionChange: (summary: ViewportSelectionSummary) => void,
 ): ViewportLike | null {
   if (createViewportImpl) {
@@ -525,6 +534,7 @@ function createViewport(
   }
 
   return new StlViewport({
+    initialThemeMode: themeMode,
     onSelectionChange,
   });
 }

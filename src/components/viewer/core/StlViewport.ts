@@ -58,6 +58,10 @@ const CLICK_MOVE_THRESHOLD = 6;
 const SELECTION_FILL_COLOR = 0xf5c66a;
 const POSITION_COMPONENTS = 9;
 const VECTOR_COMPONENTS = 3;
+const DARK_VIEWPORT_BACKGROUND = 0x11161d;
+const LIGHT_VIEWPORT_BACKGROUND = 0xf3f6fb;
+
+export type ViewportThemeMode = "light" | "dark";
 
 export type ViewportSelectionSummary = {
   triangleCount: number;
@@ -67,6 +71,7 @@ export type ViewportSelectionSummary = {
 
 type ViewportOptions = {
   onSelectionChange?: (summary: ViewportSelectionSummary) => void;
+  initialThemeMode?: ViewportThemeMode;
 };
 
 type CameraTween = {
@@ -132,9 +137,11 @@ export class StlViewport {
   private normalArray: ArrayLike<number> | null = null;
   private loadedFileName: string | null = null;
   private animationFrameId: number | null = null;
+  private themeMode: ViewportThemeMode;
 
   constructor(private readonly options: ViewportOptions = {}) {
-    this.scene.background = new Color(0x11161d);
+    this.themeMode = options.initialThemeMode ?? "dark";
+    this.applyThemeMode(this.themeMode);
     this.camera.position.copy(
       DEFAULT_CAMERA_DIRECTION.clone().multiplyScalar(5),
     );
@@ -147,6 +154,15 @@ export class StlViewport {
     fillLight.position.set(-6, 5, -8);
 
     this.scene.add(ambientLight, keyLight, fillLight);
+  }
+
+  setThemeMode(mode: ViewportThemeMode): void {
+    if (this.themeMode === mode) {
+      return;
+    }
+
+    this.themeMode = mode;
+    this.applyThemeMode(mode);
   }
 
   mount(container: HTMLElement, orientationRoot?: HTMLElement): void {
@@ -244,6 +260,12 @@ export class StlViewport {
     }
 
     this.container = null;
+  }
+
+  private applyThemeMode(mode: ViewportThemeMode): void {
+    this.scene.background = new Color(
+      mode === "dark" ? DARK_VIEWPORT_BACKGROUND : LIGHT_VIEWPORT_BACKGROUND,
+    );
   }
 
   private applyDefaultMouseBindings(): void {
