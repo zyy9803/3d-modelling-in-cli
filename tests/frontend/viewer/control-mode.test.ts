@@ -1,7 +1,7 @@
 import { MOUSE } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { getDefaultMouseBindings } from "../../../src/lib/viewer/control-mode";
+import { getDefaultMouseBindings } from "../../../src/components/viewer/core/controlMode";
 
 describe('getDefaultMouseBindings', () => {
   it('binds the left mouse button to rotate', () => {

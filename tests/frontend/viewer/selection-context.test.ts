@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createSelectionContext } from "../../../src/lib/viewer/selection-context";
+import { createSelectionContext } from "../../../src/components/viewer/core/selectionContext";
 
 describe('createSelectionContext', () => {
   it('builds the exported context payload', () => {

@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ViewerApp } from "../../../src/app/ViewerApp";
-import type { ChatStoreState } from "../../../src/features/chat/state";
+import type { ChatStoreState } from "../../../src/components/chat/state";
 import type { SessionStreamEvent } from "../../../src/shared/codex-session-types";
 
 type FakeSessionClient = {

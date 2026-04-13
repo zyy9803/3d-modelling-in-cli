@@ -5,7 +5,7 @@ import {
   clearSelection,
   removeTriangles,
   replaceSelection,
-} from "../../../src/lib/viewer/selection-manager";
+} from "../../../src/components/viewer/core/selectionManager";
 
 describe('selection-manager', () => {
   it('replaces the current selection', () => {

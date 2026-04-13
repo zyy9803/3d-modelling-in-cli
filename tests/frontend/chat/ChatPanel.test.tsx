@@ -6,7 +6,7 @@ import {
   ChatPanel,
   type ChatPanelHandlers,
   type ChatPanelState,
-} from "../../../src/features/chat/components/ChatPanel";
+} from "../../../src/components/chat/components/ChatPanel";
 
 const noopHandlers: ChatPanelHandlers = {
   onSend: vi.fn(),

@@ -2,7 +2,7 @@ import type {
   SelectionComponentPayload,
   SelectionContextPayload,
   ViewContextPayload,
-} from "../../shared/codex-session-types";
+} from "../../../shared/codex-session-types";
 
 export type SelectionContextInput = {
   fileName: string;

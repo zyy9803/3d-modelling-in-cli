@@ -18,18 +18,18 @@ import {
   type ChatContextSummary,
   type ChatStoreState,
   SessionClient,
-} from "../../features/chat";
+} from "../../components/chat";
 import {
   EMPTY_SELECTION_SUMMARY,
   formatFileSize,
   formatSelectionStatus,
   isStlFile,
-} from "../../features/viewer";
+} from "../../components/viewer";
 import type { SessionStreamEvent } from "../../shared/codex-session-types";
 import {
   StlViewport,
   type ViewportSelectionSummary,
-} from "../../lib/viewer";
+} from "../../components/viewer/core";
 
 const SESSION_ID = "sess_main";
 

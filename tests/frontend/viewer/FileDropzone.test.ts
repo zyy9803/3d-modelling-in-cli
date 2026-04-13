@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isStlFile } from "../../../src/features/viewer/utils/files";
+import { isStlFile } from "../../../src/components/viewer/utils/files";
 
 describe("isStlFile", () => {
   it("accepts .stl files case-insensitively", () => {

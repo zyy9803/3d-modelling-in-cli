@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getSelectionModifier } from "../../../src/lib/viewer/selection-shortcuts";
+import { getSelectionModifier } from "../../../src/components/viewer/core/selectionShortcuts";
 
 describe('getSelectionModifier', () => {
   it('uses replace selection by default', () => {

@@ -1,7 +1,7 @@
 import { StrictMode, createElement } from "react";
 import { createRoot } from "react-dom/client";
 
-import "./styles/index.scss";
+import "./app/global.scss";
 import { App } from "./app/App";
 
 const root = document.querySelector<HTMLElement>("#app");

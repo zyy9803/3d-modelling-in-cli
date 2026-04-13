@@ -1,3 +1,5 @@
+import "./index.scss";
+
 import {
   useEffect,
   useLayoutEffect,
@@ -13,11 +15,11 @@ import type {
   ChatMessage,
   ChatStoreState,
   ChatTimelineEntry,
-} from "../state";
+} from "../../state";
 import type {
   SessionDecisionCard,
   SessionInfoField,
-} from "../../../shared/codex-session-types";
+} from "../../../../shared/codex-session-types";
 
 export type ChatPanelHandlers = {
   onSend: (text: string) => void | Promise<void>;

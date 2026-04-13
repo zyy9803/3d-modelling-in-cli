@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildTriangleAdjacency,
   splitSelectionComponents,
-} from "../../../src/lib/viewer/mesh-topology";
+} from "../../../src/components/viewer/core/meshTopology";
 
 describe('buildTriangleAdjacency', () => {
   it('connects triangles that share an edge in non-indexed geometry', () => {

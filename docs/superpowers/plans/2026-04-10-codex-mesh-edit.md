@@ -519,12 +519,12 @@ git commit -m "feat: serve generated models by model id"
 ### Task 5: Auto-Switch Frontend to Generated Models
 
 **Files:**
-- Modify: `src/chat/chat-store.ts`
+- Modify: `src/components/chat/state/chatState.ts`
 - Modify: `src/shared/codex-session-types.ts`
-- Modify: `src/chat/session-client.ts`
-- Modify: `src/app/ViewerApp.ts`
-- Test: `src/chat/chat-store.test.ts`
-- Test: `src/app/ViewerApp.test.ts`
+- Modify: `src/components/chat/services/sessionClient.ts`
+- Modify: `src/app/ViewerApp.tsx`
+- Test: `tests/frontend/chat/chat-store.test.ts`
+- Test: `tests/frontend/app/ViewerApp.test.tsx`
 
 - [ ] **Step 1: Write the failing store test**
 
@@ -620,13 +620,13 @@ private async loadGeneratedModel(modelId: string, modelLabel: string): Promise<v
 
 - [ ] **Step 6: Run frontend tests**
 
-Run: `npm test -- --runInBand src/chat/chat-store.test.ts src/app/ViewerApp.test.ts`  
+Run: `npm test -- --runInBand tests/frontend/chat/chat-store.test.ts tests/frontend/app/ViewerApp.test.tsx`
 Expected: PASS
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/chat/chat-store.ts src/shared/codex-session-types.ts src/chat/session-client.ts src/app/ViewerApp.ts src/chat/chat-store.test.ts src/app/ViewerApp.test.ts
+git add src/components/chat/state/chatState.ts src/shared/codex-session-types.ts src/components/chat/services/sessionClient.ts src/app/ViewerApp.tsx tests/frontend/chat/chat-store.test.ts tests/frontend/app/ViewerApp.test.tsx
 git commit -m "feat: auto-switch to generated stl models"
 ```
 
@@ -700,7 +700,7 @@ git commit -m "feat: validate generated stl outputs"
 
 - [ ] **Step 1: Run focused tests**
 
-Run: `npm test -- --runInBand server/model-registry.test.ts server/edit-job.test.ts server/codex-session.test.ts server/routes.test.ts server/model-storage.test.ts src/chat/chat-store.test.ts src/app/ViewerApp.test.ts src/shared/codex-turn-prompt.test.ts`  
+Run: `npm test -- --runInBand server/model-registry.test.ts server/edit-job.test.ts server/codex-session.test.ts server/routes.test.ts server/model-storage.test.ts tests/frontend/chat/chat-store.test.ts tests/frontend/app/ViewerApp.test.tsx tests/frontend/shared/codex-turn-prompt.test.ts`
 Expected: PASS
 
 - [ ] **Step 2: Run type checks**

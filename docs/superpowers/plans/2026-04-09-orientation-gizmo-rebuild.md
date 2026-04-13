@@ -12,19 +12,19 @@
 
 ## File Structure
 
-- Modify: `src/viewer/orientation-gizmo.ts`
+- Modify: `src/components/viewer/core/orientationGizmo.ts`
   Add pure face/axis configs that define the six faces and three positive axes in world coordinates.
-- Create: `src/viewer/orientation-gizmo-overlay.ts`
+- Create: `src/components/viewer/core/orientationGizmoOverlay.ts`
   Encapsulate the mini Three.js renderer, scene, camera, face meshes, axes, sync method, visibility, and click handling.
-- Create: `src/viewer/orientation-gizmo-overlay.test.ts`
+- Create: `tests/frontend/viewer/orientation-gizmo-overlay.test.ts`
   Test overlay-independent helpers and config assumptions.
-- Modify: `src/viewer/StlViewport.ts`
+- Modify: `src/components/viewer/core/StlViewport.ts`
   Mount and sync the overlay, and keep it hidden until STL load succeeds.
-- Modify: `src/app/ViewerApp.ts`
+- Modify: `src/app/ViewerApp.tsx`
   Pass the orientation root down to the viewport; stop rendering the old DOM button gizmo in app code.
-- Modify: `src/app/ViewerApp.test.ts`
+- Modify: `tests/frontend/app/ViewerApp.test.tsx`
   Keep coverage for hidden-before-load anchor presence.
-- Modify: `src/styles.css`
+- Modify: `src/app/ViewerApp.scss`
   Style the overlay host only; the gizmo visuals come from WebGL instead of DOM/CSS 3D.
 
 ## Self-Review

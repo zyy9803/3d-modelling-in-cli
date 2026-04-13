@@ -24,35 +24,35 @@ import {
   DEFAULT_CAMERA_DIRECTION,
   fitCameraToBounds,
   type CameraFitResult,
-} from "./camera-fit";
-import { getDefaultMouseBindings } from "./control-mode";
-import { buildTriangleAdjacency, splitSelectionComponents } from "./mesh-topology";
+} from "./cameraFit";
+import { getDefaultMouseBindings } from "./controlMode";
+import { buildTriangleAdjacency, splitSelectionComponents } from "./meshTopology";
 import {
   getClosestOrientationKey,
   getOrientationDirection,
   type OrientationKey,
-} from "./orientation-gizmo";
-import { OrientationGizmoOverlay } from "./orientation-gizmo-overlay";
+} from "./orientationGizmo";
+import { OrientationGizmoOverlay } from "./orientationGizmoOverlay";
 import {
   createChatSelectionContext,
   createSelectionContext,
-} from "./selection-context";
+} from "./selectionContext";
 import type {
   SelectionComponentPayload,
   SelectionContextPayload,
   SelectionMode,
   ViewContextPayload,
-} from "../../shared/codex-session-types";
+} from "../../../shared/codex-session-types";
 import {
   getSelectionModifier,
   type SelectionModifier,
-} from "./selection-shortcuts";
+} from "./selectionShortcuts";
 import {
   addTriangles,
   clearSelection as clearSelectionSet,
   removeTriangles,
   replaceSelection,
-} from "./selection-manager";
+} from "./selectionManager";
 
 const CLICK_MOVE_THRESHOLD = 6;
 const SELECTION_FILL_COLOR = 0xf5c66a;

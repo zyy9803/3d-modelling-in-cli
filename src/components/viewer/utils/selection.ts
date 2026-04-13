@@ -1,4 +1,4 @@
-import type { ViewportSelectionSummary } from "../../../lib/viewer";
+import type { ViewportSelectionSummary } from "../core";
 
 export const EMPTY_SELECTION_SUMMARY: ViewportSelectionSummary = {
   triangleCount: 0,

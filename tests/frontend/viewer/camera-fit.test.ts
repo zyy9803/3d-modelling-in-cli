@@ -1,7 +1,7 @@
 import { Box3, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { fitCameraToBounds } from "../../../src/lib/viewer/camera-fit";
+import { fitCameraToBounds } from "../../../src/components/viewer/core/cameraFit";
 
 describe('fitCameraToBounds', () => {
   it('returns the bounds center and a positive camera distance', () => {

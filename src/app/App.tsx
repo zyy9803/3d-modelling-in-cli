@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { MockSessionClient, resolveMockCodexScenarioId } from "../features/chat";
+import { MockSessionClient, resolveMockCodexScenarioId } from "../components/chat";
 import { ViewerApp } from "./ViewerApp";
 import { AppProviders } from "./providers/AppProviders";
 

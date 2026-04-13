@@ -12,24 +12,24 @@
 
 ## 文件结构
 
-- Create: `src/viewer/mesh-topology.ts`
-- Create: `src/viewer/mesh-topology.test.ts`
-- Create: `src/viewer/selection-manager.ts`
-- Create: `src/viewer/selection-manager.test.ts`
-- Create: `src/viewer/selection-context.ts`
-- Create: `src/viewer/selection-context.test.ts`
-- Modify: `src/viewer/StlViewport.ts`
-- Modify: `src/app/ViewerApp.ts`
-- Modify: `src/app/ViewerApp.test.ts`
-- Modify: `src/styles.css`
+- Create: `src/components/viewer/core/meshTopology.ts`
+- Create: `tests/frontend/viewer/mesh-topology.test.ts`
+- Create: `src/components/viewer/core/selectionManager.ts`
+- Create: `tests/frontend/viewer/selection-manager.test.ts`
+- Create: `src/components/viewer/core/selectionContext.ts`
+- Create: `tests/frontend/viewer/selection-context.test.ts`
+- Modify: `src/components/viewer/core/StlViewport.ts`
+- Modify: `src/app/ViewerApp.tsx`
+- Modify: `tests/frontend/app/ViewerApp.test.tsx`
+- Modify: `src/app/ViewerApp.scss`
 
 ### Task 1: 以 TDD 建立三角面邻接与选择状态基础
 
 **Files:**
-- Create: `src/viewer/mesh-topology.ts`
-- Create: `src/viewer/mesh-topology.test.ts`
-- Create: `src/viewer/selection-manager.ts`
-- Create: `src/viewer/selection-manager.test.ts`
+- Create: `src/components/viewer/core/meshTopology.ts`
+- Create: `tests/frontend/viewer/mesh-topology.test.ts`
+- Create: `src/components/viewer/core/selectionManager.ts`
+- Create: `tests/frontend/viewer/selection-manager.test.ts`
 
 - [ ] **Step 1: 写失败测试，定义三角面邻接与组件拆分**
 
@@ -101,14 +101,14 @@ describe('selection-manager', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- src/viewer/mesh-topology.test.ts src/viewer/selection-manager.test.ts`
+Run: `npm test -- tests/frontend/viewer/mesh-topology.test.ts tests/frontend/viewer/selection-manager.test.ts`
 
 Expected: FAIL because the new modules do not exist yet
 
 - [ ] **Step 3: 写最小实现**
 
 ```ts
-// src/viewer/mesh-topology.ts
+// src/components/viewer/core/meshTopology.ts
 export function buildTriangleAdjacency(positionArray: ArrayLike<number>): Map<number, number[]> {
   // Each triangle is three sequential vertices in the non-indexed STL geometry.
   // Build normalized edges and connect triangles that share one edge.
@@ -123,7 +123,7 @@ export function splitSelectionComponents(
 ```
 
 ```ts
-// src/viewer/selection-manager.ts
+// src/components/viewer/core/selectionManager.ts
 export function replaceSelection(_: Set<number>, next: Iterable<number>): Set<number> {
   return new Set(next);
 }
@@ -145,22 +145,22 @@ export function clearSelection(): Set<number> {
 
 - [ ] **Step 4: 运行测试并确认通过**
 
-Run: `npm test -- src/viewer/mesh-topology.test.ts src/viewer/selection-manager.test.ts`
+Run: `npm test -- tests/frontend/viewer/mesh-topology.test.ts tests/frontend/viewer/selection-manager.test.ts`
 
 Expected: PASS, all tests green
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/viewer/mesh-topology.ts src/viewer/mesh-topology.test.ts src/viewer/selection-manager.ts src/viewer/selection-manager.test.ts
+git add src/components/viewer/core/meshTopology.ts tests/frontend/viewer/mesh-topology.test.ts src/components/viewer/core/selectionManager.ts tests/frontend/viewer/selection-manager.test.ts
 git commit -m "test: add selection topology helpers"
 ```
 
 ### Task 2: 以 TDD 定义上下文导出 JSON
 
 **Files:**
-- Create: `src/viewer/selection-context.ts`
-- Create: `src/viewer/selection-context.test.ts`
+- Create: `src/components/viewer/core/selectionContext.ts`
+- Create: `tests/frontend/viewer/selection-context.test.ts`
 
 - [ ] **Step 1: 写失败测试，定义导出格式**
 
@@ -208,14 +208,14 @@ describe('createSelectionContext', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- src/viewer/selection-context.test.ts`
+Run: `npm test -- tests/frontend/viewer/selection-context.test.ts`
 
 Expected: FAIL because the context builder does not exist yet
 
 - [ ] **Step 3: 写最小实现**
 
 ```ts
-// src/viewer/selection-context.ts
+// src/components/viewer/core/selectionContext.ts
 export function createSelectionContext(input: {
   fileName: string;
   view: ViewExport;
@@ -234,24 +234,24 @@ export function createSelectionContext(input: {
 
 - [ ] **Step 4: 运行测试并确认通过**
 
-Run: `npm test -- src/viewer/selection-context.test.ts`
+Run: `npm test -- tests/frontend/viewer/selection-context.test.ts`
 
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/viewer/selection-context.ts src/viewer/selection-context.test.ts
+git add src/components/viewer/core/selectionContext.ts tests/frontend/viewer/selection-context.test.ts
 git commit -m "test: add selection context export builder"
 ```
 
 ### Task 3: 集成视口点击、框选、高亮与导出
 
 **Files:**
-- Modify: `src/viewer/StlViewport.ts`
-- Modify: `src/app/ViewerApp.ts`
-- Modify: `src/app/ViewerApp.test.ts`
-- Modify: `src/styles.css`
+- Modify: `src/components/viewer/core/StlViewport.ts`
+- Modify: `src/app/ViewerApp.tsx`
+- Modify: `tests/frontend/app/ViewerApp.test.tsx`
+- Modify: `src/app/ViewerApp.scss`
 
 - [ ] **Step 1: 写失败测试，定义阶段二 UI**
 
@@ -280,7 +280,7 @@ describe('ViewerApp phase 2', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- src/app/ViewerApp.test.ts`
+Run: `npm test -- tests/frontend/app/ViewerApp.test.tsx`
 
 Expected: FAIL because the new buttons and status bar are not rendered yet
 
@@ -307,7 +307,7 @@ Expected: FAIL because the new buttons and status bar are not rendered yet
 
 - [ ] **Step 4: 运行 focused verification**
 
-Run: `npm test -- src/app/ViewerApp.test.ts`
+Run: `npm test -- tests/frontend/app/ViewerApp.test.tsx`
 
 Expected: PASS
 
@@ -318,15 +318,15 @@ Expected: all test files pass
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/viewer/StlViewport.ts src/app/ViewerApp.ts src/app/ViewerApp.test.ts src/styles.css
+git add src/components/viewer/core/StlViewport.ts src/app/ViewerApp.tsx tests/frontend/app/ViewerApp.test.tsx src/app/ViewerApp.scss
 git commit -m "feat: add triangle selection workflow"
 ```
 
 ### Task 4: 验证导出与浏览器行为
 
 **Files:**
-- Modify: `src/viewer/StlViewport.ts`
-- Modify: `src/app/ViewerApp.ts`
+- Modify: `src/components/viewer/core/StlViewport.ts`
+- Modify: `src/app/ViewerApp.tsx`
 
 - [ ] **Step 1: 补齐导出下载行为**
 
@@ -359,7 +359,7 @@ Verify manually:
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/viewer/StlViewport.ts src/app/ViewerApp.ts
+git add src/components/viewer/core/StlViewport.ts src/app/ViewerApp.tsx
 git commit -m "feat: export STL selection context"
 ```
 

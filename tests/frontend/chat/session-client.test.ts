@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { SessionClient } from '../../../src/features/chat/services/session-client';
+import { SessionClient } from '../../../src/components/chat/services/sessionClient';
 
 describe('SessionClient', () => {
   const fetchMock = vi.fn();

@@ -26,7 +26,7 @@ import {
   GIZMO_FACE_CONFIGS,
   getClosestOrientationKey,
   type OrientationKey,
-} from "./orientation-gizmo";
+} from "./orientationGizmo";
 
 const FACE_SIZE = 0.92;
 const FACE_DISTANCE = 0.52;

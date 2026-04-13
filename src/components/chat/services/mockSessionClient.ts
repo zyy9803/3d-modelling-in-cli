@@ -4,7 +4,7 @@ import type {
   SessionInfoField,
   SessionStreamEvent,
 } from "../../../shared/codex-session-types";
-import type { SessionStatusResponse } from "./session-client";
+import type { SessionStatusResponse } from "./sessionClient";
 
 export const MOCK_CODEX_QUERY_PARAM = "mock-codex";
 

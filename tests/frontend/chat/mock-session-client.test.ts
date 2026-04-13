@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   MockSessionClient,
   resolveMockCodexScenarioId,
-} from "../../../src/features/chat/services";
+} from "../../../src/components/chat/services";
 
 describe('resolveMockCodexScenarioId', () => {
   it('returns null when mock mode is not enabled', () => {

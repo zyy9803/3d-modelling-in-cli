@@ -30,20 +30,21 @@
 - `server/routes.ts`
 - `server/routes.test.ts`
 - `server/index.ts`
-- `src/chat/session-client.ts`
-- `src/chat/session-client.test.ts`
-- `src/chat/chat-store.ts`
-- `src/chat/chat-store.test.ts`
-- `src/chat/ChatPanel.ts`
-- `src/chat/ChatPanel.test.ts`
+- `src/components/chat/services/sessionClient.ts`
+- `tests/frontend/chat/session-client.test.ts`
+- `src/components/chat/state/chatState.ts`
+- `tests/frontend/chat/chat-store.test.ts`
+- `src/components/chat/components/ChatPanel/index.tsx`
+- `tests/frontend/chat/ChatPanel.test.tsx`
 
 ### Modify
 
 - `package.json`
-- `src/viewer/StlViewport.ts`
-- `src/app/ViewerApp.ts`
-- `src/app/ViewerApp.test.ts`
-- `src/styles.css`
+- `src/components/viewer/core/StlViewport.ts`
+- `src/app/ViewerApp.tsx`
+- `tests/frontend/app/ViewerApp.test.tsx`
+- `src/app/ViewerApp.scss`
+- `src/components/chat/components/ChatPanel/index.scss`
 
 ### Responsibilities
 
@@ -61,15 +62,15 @@
   - Maintains the single in-memory session, transcript, pending decision, and active model info.
 - `server/routes.ts`
   - Exposes `GET /api/status`, `GET /api/session/stream`, `POST /api/session/message`, `POST /api/session/decision`, `POST /api/session/model-switch`, `POST /api/session/clear`.
-- `src/chat/session-client.ts`
+- `src/components/chat/services/sessionClient.ts`
   - Frontend HTTP/SSE client.
-- `src/chat/chat-store.ts`
+- `src/components/chat/state/chatState.ts`
   - Reduces SSE events into chat panel state.
-- `src/chat/ChatPanel.ts`
+- `src/components/chat/components/ChatPanel/index.tsx`
   - Renders connection light, transcript, pending decision card, context summary, and input box.
-- `src/viewer/StlViewport.ts`
+- `src/components/viewer/core/StlViewport.ts`
   - Exposes a non-download selection snapshot API for chat sends.
-- `src/app/ViewerApp.ts`
+- `src/app/ViewerApp.tsx`
   - Owns active model identity, wires file loads to server-side model-switch events, mounts chat UI, and triggers `清空会话`.
 
 ### Notes
@@ -1282,10 +1283,10 @@ git commit -m "feat: add codex session routes"
 ### Task 5: Frontend Session Client And Chat Store
 
 **Files:**
-- Create: `src/chat/session-client.ts`
-- Create: `src/chat/session-client.test.ts`
-- Create: `src/chat/chat-store.ts`
-- Create: `src/chat/chat-store.test.ts`
+- Create: `src/components/chat/services/sessionClient.ts`
+- Create: `tests/frontend/chat/session-client.test.ts`
+- Create: `src/components/chat/state/chatState.ts`
+- Create: `tests/frontend/chat/chat-store.test.ts`
 
 - [ ] **Step 1: Write the failing chat-store test**
 
@@ -1353,14 +1354,14 @@ describe('SessionClient', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- src/chat/chat-store.test.ts`
+Run: `npm test -- tests/frontend/chat/chat-store.test.ts`
 
 Expected: FAIL with missing module or missing export.
 
 - [ ] **Step 3: Implement the frontend client and store**
 
 ```ts
-// src/chat/session-client.ts
+// src/components/chat/services/sessionClient.ts
 import type {
   SessionDecisionRequest,
   SessionMessageRequest,
@@ -1421,7 +1422,7 @@ export class SessionClient {
 ```
 
 ```ts
-// src/chat/chat-store.ts
+// src/components/chat/state/chatState.ts
 import type {
   ChatSessionStatus,
   CodexConnectionStatus,
@@ -1537,26 +1538,27 @@ export function createChatStore() {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `npm test -- src/chat/session-client.test.ts src/chat/chat-store.test.ts`
+Run: `npm test -- tests/frontend/chat/session-client.test.ts tests/frontend/chat/chat-store.test.ts`
 
 Expected: PASS with both files green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/chat/session-client.ts src/chat/session-client.test.ts src/chat/chat-store.ts src/chat/chat-store.test.ts
+git add src/components/chat/services/sessionClient.ts tests/frontend/chat/session-client.test.ts src/components/chat/state/chatState.ts tests/frontend/chat/chat-store.test.ts
 git commit -m "feat: add chat session client and store"
 ```
 
 ### Task 6: Chat Panel And Viewer Integration
 
 **Files:**
-- Create: `src/chat/ChatPanel.ts`
-- Create: `src/chat/ChatPanel.test.ts`
-- Modify: `src/viewer/StlViewport.ts`
-- Modify: `src/app/ViewerApp.ts`
-- Modify: `src/app/ViewerApp.test.ts`
-- Modify: `src/styles.css`
+- Create: `src/components/chat/components/ChatPanel/index.tsx`
+- Create: `tests/frontend/chat/ChatPanel.test.tsx`
+- Modify: `src/components/viewer/core/StlViewport.ts`
+- Modify: `src/app/ViewerApp.tsx`
+- Modify: `tests/frontend/app/ViewerApp.test.tsx`
+- Modify: `src/app/ViewerApp.scss`
+- Modify: `src/components/chat/components/ChatPanel/index.scss`
 
 - [ ] **Step 1: Write the failing integration test**
 
@@ -1633,14 +1635,14 @@ describe('createChatPanel', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- src/chat/ChatPanel.test.ts src/app/ViewerApp.test.ts`
+Run: `npm test -- tests/frontend/chat/ChatPanel.test.tsx tests/frontend/app/ViewerApp.test.tsx`
 
 Expected: FAIL because the chat panel markup and hooks do not exist yet.
 
 - [ ] **Step 3: Implement panel rendering, context snapshotting, and ViewerApp wiring**
 
 ```ts
-// src/viewer/StlViewport.ts
+// src/components/viewer/core/StlViewport.ts
 import type { SelectionContextPayload, ViewContextPayload } from '../shared/codex-session-types';
 
 export class StlViewport {
@@ -1682,7 +1684,7 @@ export class StlViewport {
 ```
 
 ```ts
-// src/chat/ChatPanel.ts
+// src/components/chat/components/ChatPanel/index.tsx
 import type { SessionDecisionCard } from '../shared/codex-session-types';
 
 type ChatPanelState = {
@@ -1811,7 +1813,7 @@ export function createChatPanel(options: {
 ```
 
 ```ts
-// src/app/ViewerApp.ts
+// src/app/ViewerApp.tsx
 import { createChatPanel } from '../chat/ChatPanel';
 import { createChatStore } from '../chat/chat-store';
 import { SessionClient } from '../chat/session-client';
@@ -1941,7 +1943,7 @@ export class ViewerApp {
 ```
 
 ```css
-/* src/styles.css */
+/* src/app/ViewerApp.scss + src/components/chat/components/ChatPanel/index.scss */
 .app-shell--with-chat {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
@@ -1975,7 +1977,7 @@ export class ViewerApp {
 
 - [ ] **Step 4: Run tests and full verification**
 
-Run: `npm test -- src/chat/ChatPanel.test.ts src/app/ViewerApp.test.ts && npm test && npm run build`
+Run: `npm test -- tests/frontend/chat/ChatPanel.test.tsx tests/frontend/app/ViewerApp.test.tsx && npm test && npm run build`
 
 Expected:
 - Chat panel tests PASS
@@ -1985,7 +1987,7 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/viewer/StlViewport.ts src/chat/ChatPanel.ts src/chat/ChatPanel.test.ts src/app/ViewerApp.ts src/app/ViewerApp.test.ts src/styles.css
+git add src/components/viewer/core/StlViewport.ts src/components/chat/components/ChatPanel/index.tsx tests/frontend/chat/ChatPanel.test.tsx src/app/ViewerApp.tsx tests/frontend/app/ViewerApp.test.tsx src/app/ViewerApp.scss src/components/chat/components/ChatPanel/index.scss
 git commit -m "feat: add codex chat panel integration"
 ```
 

@@ -7,7 +7,7 @@ import {
   ORIENTATION_KEYS,
   getClosestOrientationKey,
   getOrientationDirection,
-} from "../../../src/lib/viewer/orientation-gizmo";
+} from "../../../src/components/viewer/core/orientationGizmo";
 
 describe('orientation gizmo config', () => {
   it('exports one face config for each standard orientation', () => {

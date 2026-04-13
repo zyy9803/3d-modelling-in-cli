@@ -1,0 +1,25 @@
+.file-dropzone {
+  position: absolute;
+  inset: 18px;
+  border: 1px dashed rgba(148, 163, 184, 0.24);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(124, 156, 255, 0.02), rgba(245, 198, 106, 0.01)),
+    transparent;
+  pointer-events: none;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.viewport-panel.is-loaded .file-dropzone,
+.viewport-panel.is-loaded .viewport-empty {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.viewport-panel.is-drag-active .file-dropzone {
+  border-color: rgba(245, 198, 106, 0.85);
+  background: rgba(245, 198, 106, 0.08);
+}

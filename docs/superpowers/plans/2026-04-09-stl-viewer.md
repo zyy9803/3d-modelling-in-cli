@@ -19,16 +19,16 @@
 - Create: `.gitignore`
 - Create: `index.html`
 - Create: `src/main.ts`
-- Create: `src/styles.css`
-- Create: `src/app/ViewerApp.ts`
-- Create: `src/ui/FileDropzone.ts`
-- Create: `src/viewer/StlViewport.ts`
-- Create: `src/viewer/camera-fit.ts`
-- Create: `src/viewer/orientation-gizmo.ts`
-- Create: `src/viewer/control-mode.ts`
-- Create: `src/viewer/camera-fit.test.ts`
-- Create: `src/viewer/orientation-gizmo.test.ts`
-- Create: `src/viewer/control-mode.test.ts`
+- Create: `src/app/global.scss`
+- Create: `src/app/ViewerApp.tsx`
+- Create: `src/components/viewer/components/FileDropzone/index.tsx`
+- Create: `src/components/viewer/core/StlViewport.ts`
+- Create: `src/components/viewer/core/cameraFit.ts`
+- Create: `src/components/viewer/core/orientationGizmo.ts`
+- Create: `src/components/viewer/core/controlMode.ts`
+- Create: `tests/frontend/viewer/camera-fit.test.ts`
+- Create: `tests/frontend/viewer/orientation-gizmo.test.ts`
+- Create: `tests/frontend/viewer/control-mode.test.ts`
 
 ### Task 1: 初始化工程与测试环境
 
@@ -104,8 +104,8 @@ git commit -m "chore: scaffold STL viewer project"
 ### Task 2: 用 TDD 实现相机 framing 数学工具
 
 **Files:**
-- Create: `src/viewer/camera-fit.test.ts`
-- Create: `src/viewer/camera-fit.ts`
+- Create: `tests/frontend/viewer/camera-fit.test.ts`
+- Create: `src/components/viewer/core/cameraFit.ts`
 
 - [ ] **Step 1: 写失败测试，锁定 framing 行为**
 
@@ -139,7 +139,7 @@ describe('fitCameraToBounds', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- src/viewer/camera-fit.test.ts`
+Run: `npm test -- tests/frontend/viewer/camera-fit.test.ts`
 
 Expected: FAIL because `./camera-fit` or `fitCameraToBounds` does not exist
 
@@ -173,24 +173,24 @@ export function fitCameraToBounds(bounds: Box3, fovDegrees: number, padding = 1.
 
 - [ ] **Step 4: 运行测试并确认通过**
 
-Run: `npm test -- src/viewer/camera-fit.test.ts`
+Run: `npm test -- tests/frontend/viewer/camera-fit.test.ts`
 
 Expected: PASS, `2` tests passed
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/viewer/camera-fit.ts src/viewer/camera-fit.test.ts
+git add src/components/viewer/core/cameraFit.ts tests/frontend/viewer/camera-fit.test.ts
 git commit -m "test: add camera fit utility"
 ```
 
 ### Task 3: 用 TDD 实现交互模式映射与朝向映射
 
 **Files:**
-- Create: `src/viewer/control-mode.test.ts`
-- Create: `src/viewer/control-mode.ts`
-- Create: `src/viewer/orientation-gizmo.test.ts`
-- Create: `src/viewer/orientation-gizmo.ts`
+- Create: `tests/frontend/viewer/control-mode.test.ts`
+- Create: `src/components/viewer/core/controlMode.ts`
+- Create: `tests/frontend/viewer/orientation-gizmo.test.ts`
+- Create: `src/components/viewer/core/orientationGizmo.ts`
 
 - [ ] **Step 1: 写失败测试，定义模式映射**
 
@@ -226,14 +226,14 @@ describe('getOrientationDirection', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- src/viewer/control-mode.test.ts src/viewer/orientation-gizmo.test.ts`
+Run: `npm test -- tests/frontend/viewer/control-mode.test.ts tests/frontend/viewer/orientation-gizmo.test.ts`
 
 Expected: FAIL because helper modules do not exist yet
 
 - [ ] **Step 3: 写最小实现**
 
 ```ts
-// src/viewer/control-mode.ts
+// src/components/viewer/core/controlMode.ts
 import { MOUSE } from 'three';
 
 export type ControlMode = 'rotate' | 'pan';
@@ -248,7 +248,7 @@ export function getMouseBindings(mode: ControlMode) {
 ```
 
 ```ts
-// src/viewer/orientation-gizmo.ts
+// src/components/viewer/core/orientationGizmo.ts
 import { Vector3 } from 'three';
 
 export const ORIENTATION_KEYS = ['+X', '-X', '+Y', '-Y', '+Z', '-Z'] as const;
@@ -268,14 +268,14 @@ export function getOrientationDirection(key: OrientationKey): Vector3 {
 
 - [ ] **Step 4: 运行测试并确认通过**
 
-Run: `npm test -- src/viewer/control-mode.test.ts src/viewer/orientation-gizmo.test.ts`
+Run: `npm test -- tests/frontend/viewer/control-mode.test.ts tests/frontend/viewer/orientation-gizmo.test.ts`
 
 Expected: PASS, all tests green
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/viewer/control-mode.ts src/viewer/control-mode.test.ts src/viewer/orientation-gizmo.ts src/viewer/orientation-gizmo.test.ts
+git add src/components/viewer/core/controlMode.ts tests/frontend/viewer/control-mode.test.ts src/components/viewer/core/orientationGizmo.ts tests/frontend/viewer/orientation-gizmo.test.ts
 git commit -m "test: add viewer interaction helpers"
 ```
 
@@ -283,9 +283,9 @@ git commit -m "test: add viewer interaction helpers"
 
 **Files:**
 - Create: `src/main.ts`
-- Create: `src/styles.css`
-- Create: `src/app/ViewerApp.ts`
-- Create: `src/ui/FileDropzone.ts`
+- Create: `src/app/global.scss`
+- Create: `src/app/ViewerApp.tsx`
+- Create: `src/components/viewer/components/FileDropzone/index.tsx`
 
 - [ ] **Step 1: 先写一个 DOM 层测试，验证空状态和模式按钮默认值**
 
@@ -306,7 +306,7 @@ describe('ViewerApp', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- src/app/ViewerApp.test.ts`
+Run: `npm test -- tests/frontend/app/ViewerApp.test.tsx`
 
 Expected: FAIL because app module does not exist yet
 
@@ -342,23 +342,23 @@ export class ViewerApp {
 
 - [ ] **Step 4: 运行测试并确认通过**
 
-Run: `npm test -- src/app/ViewerApp.test.ts`
+Run: `npm test -- tests/frontend/app/ViewerApp.test.tsx`
 
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main.ts src/styles.css src/app/ViewerApp.ts src/app/ViewerApp.test.ts src/ui/FileDropzone.ts
+git add src/main.ts src/app/global.scss src/app/ViewerApp.tsx tests/frontend/app/ViewerApp.test.tsx src/components/viewer/components/FileDropzone/index.tsx
 git commit -m "feat: add viewer shell UI"
 ```
 
 ### Task 5: 接入 Three.js 视口与 STL 加载
 
 **Files:**
-- Modify: `src/app/ViewerApp.ts`
-- Modify: `src/ui/FileDropzone.ts`
-- Create: `src/viewer/StlViewport.ts`
+- Modify: `src/app/ViewerApp.tsx`
+- Modify: `src/components/viewer/components/FileDropzone/index.tsx`
+- Create: `src/components/viewer/core/StlViewport.ts`
 
 - [ ] **Step 1: 写失败测试，锁定文件类型校验**
 
@@ -379,7 +379,7 @@ describe('isStlFile', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- src/ui/FileDropzone.test.ts`
+Run: `npm test -- tests/frontend/viewer/FileDropzone.test.ts`
 
 Expected: FAIL because helper does not exist yet
 
@@ -405,7 +405,7 @@ export class StlViewport {
 
 - [ ] **Step 4: 运行目标测试并构建**
 
-Run: `npm test -- src/ui/FileDropzone.test.ts`
+Run: `npm test -- tests/frontend/viewer/FileDropzone.test.ts`
 
 Expected: PASS
 
@@ -416,17 +416,17 @@ Expected: build succeeds with exit code `0`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/app/ViewerApp.ts src/ui/FileDropzone.ts src/ui/FileDropzone.test.ts src/viewer/StlViewport.ts
+git add src/app/ViewerApp.tsx src/components/viewer/components/FileDropzone/index.tsx tests/frontend/viewer/FileDropzone.test.ts src/components/viewer/core/StlViewport.ts
 git commit -m "feat: add STL loading viewport"
 ```
 
 ### Task 6: 接入朝向控件、模式切换、重置视角与最终样式
 
 **Files:**
-- Modify: `src/app/ViewerApp.ts`
-- Modify: `src/styles.css`
-- Modify: `src/viewer/StlViewport.ts`
-- Modify: `src/viewer/orientation-gizmo.ts`
+- Modify: `src/app/ViewerApp.tsx`
+- Modify: `src/app/global.scss`
+- Modify: `src/components/viewer/core/StlViewport.ts`
+- Modify: `src/components/viewer/core/orientationGizmo.ts`
 
 - [ ] **Step 1: 写失败测试，锁定朝向控件 DOM 输出**
 
@@ -448,7 +448,7 @@ describe('renderOrientationGizmo', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- src/viewer/orientation-gizmo.test.ts`
+Run: `npm test -- tests/frontend/viewer/orientation-gizmo.test.ts`
 
 Expected: FAIL because render helper is missing
 
@@ -483,7 +483,7 @@ Expected: build succeeds with exit code `0`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/app/ViewerApp.ts src/styles.css src/viewer/StlViewport.ts src/viewer/orientation-gizmo.ts
+git add src/app/ViewerApp.tsx src/app/global.scss src/components/viewer/core/StlViewport.ts src/components/viewer/core/orientationGizmo.ts
 git commit -m "feat: finish STL viewer interactions"
 ```
 

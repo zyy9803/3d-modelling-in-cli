@@ -1,7 +1,8 @@
+import "./ViewerApp.scss";
 import { useViewerAppContext, ViewerAppProvider } from "./context/ViewerAppContext";
 import type { ViewerAppOptions } from "./hooks/useViewerAppController";
-import { ChatPanel } from "../features/chat";
-import { FileDropzone } from "../features/viewer";
+import { ChatPanel } from "../components/chat";
+import { FileDropzone } from "../components/viewer";
 
 export function ViewerApp(options: ViewerAppOptions) {
   return (

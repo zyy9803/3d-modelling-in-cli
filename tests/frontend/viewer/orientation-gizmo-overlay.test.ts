@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   GIZMO_CAMERA_DISTANCE,
   getGizmoCameraPosition,
-} from "../../../src/lib/viewer/orientation-gizmo-overlay";
+} from "../../../src/components/viewer/core/orientationGizmoOverlay";
 
 describe('getGizmoCameraPosition', () => {
   it('normalizes the main view direction to a fixed gizmo camera distance', () => {

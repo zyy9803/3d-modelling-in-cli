@@ -4,7 +4,7 @@ import {
   chatStateReducer,
   createInitialChatState,
   type ChatStoreState,
-} from "../../../src/features/chat/state";
+} from "../../../src/components/chat/state";
 import type { SessionStreamEvent } from "../../../src/shared/codex-session-types";
 
 describe("chatStateReducer", () => {
