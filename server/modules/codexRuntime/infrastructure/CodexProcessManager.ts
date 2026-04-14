@@ -1,9 +1,8 @@
-import { execFile, spawn, type ChildProcessByStdio } from 'node:child_process';
+import { spawn, type ChildProcessByStdio } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import type { Readable } from 'node:stream';
-import { promisify } from 'node:util';
 
-const execFileAsync = promisify(execFile);
+import { ensurePortsAvailable } from '../../../shared/devPortCleanup.js';
 
 export type CodexProcessEvent =
   | {
@@ -24,6 +23,11 @@ export type CodexProcessEvent =
 export type CodexProcessManagerOptions = {
   listenPort: number;
   cwd?: string;
+};
+
+export type CodexSpawnCommand = {
+  command: string;
+  args: string[];
 };
 
 export class CodexProcessManager extends EventEmitter {
@@ -53,29 +57,18 @@ export class CodexProcessManager extends EventEmitter {
 
   private async startInternal(): Promise<void> {
     try {
-      await this.ensureListenPortAvailable();
+      await ensurePortsAvailable({
+        ports: [this.options.listenPort],
+      });
     } catch {
-      // Best-effort cleanup on Windows: a cleanup script failure should not block
-      // the actual app-server spawn, because the port may still be free.
+      // Best-effort cleanup: a cleanup failure should not block the app-server
+      // spawn because the port may still already be free.
     }
 
     try {
-      const args = [
-        '--sandbox',
-        'danger-full-access',
-        '--ask-for-approval',
-        'never',
-        'app-server',
-        '--listen',
-        this.listenUrl,
-      ];
-      const command = process.platform === 'win32' ? 'cmd.exe' : 'codex';
-      const commandArgs =
-        process.platform === 'win32'
-          ? ['/d', '/s', '/c', `codex.cmd ${args.map(quoteWindowsArg).join(' ')}`]
-          : args;
+      const spawnCommand = createCodexSpawnCommand(this.listenUrl);
 
-      const child = spawn(command, commandArgs, {
+      const child = spawn(spawnCommand.command, spawnCommand.args, {
         cwd: this.options.cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
@@ -139,27 +132,33 @@ export class CodexProcessManager extends EventEmitter {
   public isStopping(): boolean {
     return this.stopping;
   }
+}
 
-  private async ensureListenPortAvailable(): Promise<void> {
-    if (process.platform !== 'win32') {
-      return;
-    }
+export function createCodexSpawnCommand(
+  listenUrl: string,
+  platform: NodeJS.Platform = process.platform,
+): CodexSpawnCommand {
+  const args = [
+    '--sandbox',
+    'danger-full-access',
+    '--ask-for-approval',
+    'never',
+    'app-server',
+    '--listen',
+    listenUrl,
+  ];
 
-    const command = [
-      `$connections = Get-NetTCPConnection -State Listen -LocalPort ${this.options.listenPort} -ErrorAction SilentlyContinue`,
-      'if ($connections) {',
-      '  $owningProcessIds = $connections | Select-Object -ExpandProperty OwningProcess -Unique',
-      '  foreach ($owningProcessId in $owningProcessIds) {',
-      '    try { Stop-Process -Id $owningProcessId -Force -ErrorAction Stop } catch {}',
-      '  }',
-      '}',
-    ].join('; ');
-
-    await execFileAsync('powershell.exe', ['-NoProfile', '-Command', command], {
-      cwd: this.options.cwd,
-      windowsHide: true,
-    });
+  if (platform === 'win32') {
+    return {
+      command: 'cmd.exe',
+      args: ['/d', '/s', '/c', `codex.cmd ${args.map(quoteWindowsArg).join(' ')}`],
+    };
   }
+
+  return {
+    command: 'codex',
+    args,
+  };
 }
 
 function quoteWindowsArg(value: string): string {

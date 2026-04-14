@@ -24,54 +24,54 @@ import {
   type DraftJobRecord,
   type EditJobFactory,
   type ExecutionJobRecord,
-} from '../../jobs/infrastructure/edit-job-workspace.js';
+} from '../../jobs/infrastructure/editJobWorkspace.js';
 import {
   createEditJobService,
   type EditJobService,
-} from '../../jobs/application/edit-job-service.js';
-import { createDebugLogger, type DebugLogger } from '../../../shared/logging/debug-log.js';
+} from '../../jobs/application/EditJobService.js';
+import { createDebugLogger, type DebugLogger } from '../../../shared/logging/debugLog.js';
 import {
   createModelRegistry,
   type ModelRegistry,
-} from '../../models/infrastructure/model-registry.js';
+} from '../../models/infrastructure/ModelRegistry.js';
 import {
   createModelStorage,
   type ModelStorage,
-} from '../../models/infrastructure/model-storage.js';
+} from '../../models/infrastructure/ModelStorage.js';
 import {
   createModelCatalogService,
   type ModelCatalogService,
-} from '../../models/application/model-catalog-service.js';
+} from '../../models/application/ModelCatalogService.js';
 import {
   buildDecisionActivityEvents,
   buildDecisionEnvelope,
   buildDecisionResponse,
   type PendingDecisionEnvelope,
-} from '../mappers/decision-mapper.js';
+} from '../mappers/decisionMapper.js';
 import {
   mapThreadStatus,
   normalizeServerNotification,
-} from '../mappers/notification-mapper.js';
+} from '../mappers/notificationMapper.js';
 import type {
   CommandExecutionRequestApprovalParams,
   FileChangeRequestApprovalParams,
   PermissionsRequestApprovalParams,
   ServerNotification,
   ServerRequest,
-} from '../../codex-runtime/protocol/codex-app-server-protocol.js';
+} from '../../codexRuntime/protocol/CodexAppServerProtocol.js';
 import {
   createCodexRuntime,
   type CodexRuntime,
-} from '../infrastructure/codex-runtime.js';
+} from '../infrastructure/CodexRuntime.js';
 import {
   SessionEventBus,
   type SessionSubscriber,
-} from '../infrastructure/session-event-bus.js';
+} from '../infrastructure/SessionEventBus.js';
 import {
   EMPTY_DRAFT_STATE,
   replaySessionSnapshot,
   type SessionSnapshot,
-} from '../domain/session-snapshot.js';
+} from '../domain/SessionSnapshot.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -926,16 +926,7 @@ export class CodexSessionController {
 async function runDraftScript(job: ExecutionJobRecord): Promise<void> {
   const scriptSource = await readFile(job.scriptPath, 'utf8');
   const scriptArgs = buildDraftScriptArgs(scriptSource, job);
-  const candidates =
-    process.platform === 'win32'
-      ? [
-          { command: 'py', args: ['-3', 'edit.py', ...scriptArgs] },
-          { command: 'python', args: ['edit.py', ...scriptArgs] },
-        ]
-      : [
-          { command: 'python3', args: ['edit.py', ...scriptArgs] },
-          { command: 'python', args: ['edit.py', ...scriptArgs] },
-        ];
+  const candidates = getDraftScriptCommandCandidates(process.platform, scriptArgs);
 
   let missingInterpreterCount = 0;
 
@@ -965,6 +956,21 @@ async function runDraftScript(job: ExecutionJobRecord): Promise<void> {
   if (missingInterpreterCount === candidates.length) {
     throw new Error('Python interpreter not found. Tried python3/python (or py -3 on Windows).');
   }
+}
+
+export function getDraftScriptCommandCandidates(
+  platform: NodeJS.Platform,
+  scriptArgs: string[],
+): Array<{ command: string; args: string[] }> {
+  return platform === 'win32'
+    ? [
+        { command: 'py', args: ['-3', 'edit.py', ...scriptArgs] },
+        { command: 'python', args: ['edit.py', ...scriptArgs] },
+      ]
+    : [
+        { command: 'python3', args: ['edit.py', ...scriptArgs] },
+        { command: 'python', args: ['edit.py', ...scriptArgs] },
+      ];
 }
 
 function summarizeMessageRequest(request: SessionMessageRequest) {

@@ -10,12 +10,12 @@ import type {
   TurnStartResponse,
   TurnSteerParams,
   TurnSteerResponse,
-} from '../../codex-runtime/protocol/codex-app-server-protocol.js';
+} from '../../codexRuntime/protocol/CodexAppServerProtocol.js';
 import {
   CodexProcessManager,
   type CodexProcessEvent,
-} from '../../codex-runtime/infrastructure/codex-process.js';
-import { CodexGateway } from '../../codex-runtime/infrastructure/codex-gateway.js';
+} from '../../codexRuntime/infrastructure/CodexProcessManager.js';
+import { CodexGateway } from '../../codexRuntime/infrastructure/CodexGateway.js';
 
 type RuntimeConnectionStatus =
   | 'starting'

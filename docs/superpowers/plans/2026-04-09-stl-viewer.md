@@ -66,11 +66,11 @@ coverage/
 
 - [ ] **Step 2: 安装依赖**
 
-Run: `npm install three`
+Run: `pnpm add three`
 
 Expected: install succeeds with exit code `0`
 
-Run: `npm install -D typescript vite vitest jsdom @types/three`
+Run: `pnpm add -D typescript vite vitest jsdom @types/three`
 
 Expected: install succeeds with exit code `0`
 
@@ -90,7 +90,7 @@ export default defineConfig({
 
 - [ ] **Step 4: 验证空测试基线**
 
-Run: `npm test`
+Run: `pnpm test`
 
 Expected: exits `0`, reports no failed tests
 
@@ -139,7 +139,7 @@ describe('fitCameraToBounds', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- tests/frontend/viewer/camera-fit.test.ts`
+Run: `pnpm test tests/frontend/viewer/camera-fit.test.ts`
 
 Expected: FAIL because `./camera-fit` or `fitCameraToBounds` does not exist
 
@@ -173,7 +173,7 @@ export function fitCameraToBounds(bounds: Box3, fovDegrees: number, padding = 1.
 
 - [ ] **Step 4: 运行测试并确认通过**
 
-Run: `npm test -- tests/frontend/viewer/camera-fit.test.ts`
+Run: `pnpm test tests/frontend/viewer/camera-fit.test.ts`
 
 Expected: PASS, `2` tests passed
 
@@ -226,7 +226,7 @@ describe('getOrientationDirection', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- tests/frontend/viewer/control-mode.test.ts tests/frontend/viewer/orientation-gizmo.test.ts`
+Run: `pnpm test tests/frontend/viewer/control-mode.test.ts tests/frontend/viewer/orientation-gizmo.test.ts`
 
 Expected: FAIL because helper modules do not exist yet
 
@@ -268,7 +268,7 @@ export function getOrientationDirection(key: OrientationKey): Vector3 {
 
 - [ ] **Step 4: 运行测试并确认通过**
 
-Run: `npm test -- tests/frontend/viewer/control-mode.test.ts tests/frontend/viewer/orientation-gizmo.test.ts`
+Run: `pnpm test tests/frontend/viewer/control-mode.test.ts tests/frontend/viewer/orientation-gizmo.test.ts`
 
 Expected: PASS, all tests green
 
@@ -306,7 +306,7 @@ describe('ViewerApp', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- tests/frontend/app/ViewerApp.test.tsx`
+Run: `pnpm test tests/frontend/app/ViewerApp.test.tsx`
 
 Expected: FAIL because app module does not exist yet
 
@@ -342,7 +342,7 @@ export class ViewerApp {
 
 - [ ] **Step 4: 运行测试并确认通过**
 
-Run: `npm test -- tests/frontend/app/ViewerApp.test.tsx`
+Run: `pnpm test tests/frontend/app/ViewerApp.test.tsx`
 
 Expected: PASS
 
@@ -379,7 +379,7 @@ describe('isStlFile', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- tests/frontend/viewer/FileDropzone.test.ts`
+Run: `pnpm test tests/frontend/viewer/FileDropzone.test.ts`
 
 Expected: FAIL because helper does not exist yet
 
@@ -405,11 +405,11 @@ export class StlViewport {
 
 - [ ] **Step 4: 运行目标测试并构建**
 
-Run: `npm test -- tests/frontend/viewer/FileDropzone.test.ts`
+Run: `pnpm test tests/frontend/viewer/FileDropzone.test.ts`
 
 Expected: PASS
 
-Run: `npm run build`
+Run: `pnpm build`
 
 Expected: build succeeds with exit code `0`
 
@@ -448,7 +448,7 @@ describe('renderOrientationGizmo', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- tests/frontend/viewer/orientation-gizmo.test.ts`
+Run: `pnpm test tests/frontend/viewer/orientation-gizmo.test.ts`
 
 Expected: FAIL because render helper is missing
 
@@ -472,11 +472,11 @@ export function renderOrientationGizmo(
 
 - [ ] **Step 4: 运行完整验证**
 
-Run: `npm test`
+Run: `pnpm test`
 
 Expected: all tests pass
 
-Run: `npm run build`
+Run: `pnpm build`
 
 Expected: build succeeds with exit code `0`
 

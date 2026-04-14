@@ -17,7 +17,7 @@ import type {
   ThreadStatus,
   ToolRequestUserInputParams,
   ToolRequestUserInputResponse,
-} from '../../codex-runtime/protocol/codex-app-server-protocol.js';
+} from '../../codexRuntime/protocol/CodexAppServerProtocol.js';
 import type {
   ChatSessionStatus,
   DecisionOption,

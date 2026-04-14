@@ -215,7 +215,7 @@ export function createEditJobFactory(options: EditJobFactoryOptions) {
 
 - [ ] **Step 6: Run targeted tests**
 
-Run: `npm test -- --runInBand server/model-registry.test.ts server/edit-job.test.ts`  
+Run: `pnpm test server/model-registry.test.ts server/edit-job.test.ts`  
 Expected: PASS
 
 - [ ] **Step 7: Commit**
@@ -314,7 +314,7 @@ developerInstructions:
 
 - [ ] **Step 5: Run prompt tests**
 
-Run: `npm test -- --runInBand src/shared/codex-turn-prompt.test.ts`  
+Run: `pnpm test src/shared/codex-turn-prompt.test.ts`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -442,7 +442,7 @@ if (notification.method === 'turn/completed' && this.activeEditJob) {
 
 - [ ] **Step 7: Run the session tests**
 
-Run: `npm test -- --runInBand server/codex-session.test.ts`  
+Run: `pnpm test server/codex-session.test.ts`
 Expected: PASS
 
 - [ ] **Step 8: Commit**
@@ -506,7 +506,7 @@ if (url.pathname.startsWith('/api/models/') && request.method === 'GET') {
 
 - [ ] **Step 4: Run route tests**
 
-Run: `npm test -- --runInBand server/routes.test.ts`  
+Run: `pnpm test server/routes.test.ts`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -620,7 +620,7 @@ private async loadGeneratedModel(modelId: string, modelLabel: string): Promise<v
 
 - [ ] **Step 6: Run frontend tests**
 
-Run: `npm test -- --runInBand tests/frontend/chat/chat-store.test.ts tests/frontend/app/ViewerApp.test.tsx`
+Run: `pnpm test tests/frontend/chat/chat-store.test.ts tests/frontend/app/ViewerApp.test.tsx`
 Expected: PASS
 
 - [ ] **Step 7: Commit**
@@ -683,7 +683,7 @@ if (!validation.ok) {
 
 - [ ] **Step 4: Run validation tests**
 
-Run: `npm test -- --runInBand server/model-storage.test.ts`  
+Run: `pnpm test server/model-storage.test.ts`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -700,7 +700,7 @@ git commit -m "feat: validate generated stl outputs"
 
 - [ ] **Step 1: Run focused tests**
 
-Run: `npm test -- --runInBand server/model-registry.test.ts server/edit-job.test.ts server/codex-session.test.ts server/routes.test.ts server/model-storage.test.ts tests/frontend/chat/chat-store.test.ts tests/frontend/app/ViewerApp.test.tsx tests/frontend/shared/codex-turn-prompt.test.ts`
+Run: `pnpm test server/model-registry.test.ts server/edit-job.test.ts server/codex-session.test.ts server/routes.test.ts server/model-storage.test.ts tests/frontend/chat/chat-store.test.ts tests/frontend/app/ViewerApp.test.tsx tests/frontend/shared/codex-turn-prompt.test.ts`
 Expected: PASS
 
 - [ ] **Step 2: Run type checks**
@@ -713,7 +713,7 @@ Expected: PASS
 
 - [ ] **Step 3: Run build**
 
-Run: `npm run build`  
+Run: `pnpm build`
 Expected: PASS
 
 - [ ] **Step 4: Update spec only if needed**

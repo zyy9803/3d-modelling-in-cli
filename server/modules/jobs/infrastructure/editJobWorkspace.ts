@@ -8,7 +8,7 @@ import type {
 import type {
   ModelRecord,
   ModelRegistry,
-} from '../../models/infrastructure/model-registry.js';
+} from '../../models/infrastructure/ModelRegistry.js';
 
 export type DraftJobInput = {
   activeModelId: string;

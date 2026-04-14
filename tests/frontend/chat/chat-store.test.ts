@@ -18,7 +18,7 @@ describe("chatStateReducer", () => {
         fields: [
           {
             label: "命令",
-            value: "npm test -- tests/frontend/chat/chat-store.test.ts",
+            value: "pnpm test tests/frontend/chat/chat-store.test.ts",
           },
         ],
         bodyFormat: "code",
@@ -52,7 +52,7 @@ describe("chatStateReducer", () => {
         fields: [
           {
             label: "命令",
-            value: "npm test -- tests/frontend/chat/chat-store.test.ts",
+            value: "pnpm test tests/frontend/chat/chat-store.test.ts",
           },
         ],
         text: "正在运行测试...",

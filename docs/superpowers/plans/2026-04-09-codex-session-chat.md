@@ -4,7 +4,7 @@
 
 **Goal:** Build Phase 3A of the STL viewer: a lightweight local server that manages one Codex app-server session plus a right-side frontend chat panel that streams Codex responses, surfaces pause/decision states, preserves transcript across STL switches, and only clears conversation when the user explicitly clicks `清空会话`.
 
-**Architecture:** Add a thin Node BFF under `server/` that starts `codex --sandbox danger-full-access --ask-for-approval on-request app-server`, connects to it over local WebSocket, normalizes app-server notifications/requests into a compact SSE event model, and keeps one in-memory chat session. On the frontend, add a `chat-store` + `session-client` + `ChatPanel` stack, then wire `ViewerApp` to send `activeModelId + selectionContext + viewContext + user text` and render connection/session state separately.
+**Architecture:** Add a thin Node BFF under `server/` that starts `codex --sandbox danger-full-access --ask-for-approval never app-server`, connects to it over local WebSocket, normalizes app-server notifications/requests into a compact SSE event model, and keeps one in-memory chat session. On the frontend, add a `chat-store` + `session-client` + `ChatPanel` stack, then wire `ViewerApp` to send `activeModelId + selectionContext + viewContext + user text` and render connection/session state separately.
 
 **Tech Stack:** TypeScript, Vite, Vitest, Node.js built-ins, `ws`, `tsx`, existing Three.js viewer modules, Codex app-server generated TypeScript bindings.
 
@@ -145,7 +145,7 @@ describe('buildCodexTurnPrompt', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- src/shared/codex-turn-prompt.test.ts`
+Run: `pnpm test src/shared/codex-turn-prompt.test.ts`
 
 Expected: FAIL with `Cannot find module './codex-turn-prompt'` or missing exported types.
 
@@ -313,12 +313,12 @@ export function buildCodexTurnPrompt(request: SessionMessageRequest): string {
 // package.json
 {
   "scripts": {
-    "dev:client": "vite",
-    "dev:server": "tsx watch server/index.ts",
-    "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
-    "build:client": "tsc --noEmit && vite build",
+    "dev:client": "vite --strictPort --port 5173",
+    "dev:server": "tsx watch --tsconfig tsconfig.server.json server/index.ts",
+    "dev": "tsx scripts/dev.ts",
+    "build:client": "tsx scripts/buildClient.ts",
     "build:server": "tsc -p tsconfig.server.json",
-    "build": "npm run build:client && npm run build:server",
+    "build": "tsx scripts/build.ts",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"
   },
@@ -354,7 +354,7 @@ export function buildCodexTurnPrompt(request: SessionMessageRequest): string {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm test -- src/shared/codex-turn-prompt.test.ts`
+Run: `pnpm test src/shared/codex-turn-prompt.test.ts`
 
 Expected: PASS with `1 passed`.
 
@@ -421,7 +421,7 @@ describe('CodexProcessManager', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- server/codex-process.test.ts`
+Run: `pnpm test server/codex-process.test.ts`
 
 Expected: FAIL with missing module or missing exported class.
 
@@ -530,7 +530,7 @@ async function defaultWaitForSocket(url: string): Promise<void> {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm test -- server/codex-process.test.ts`
+Run: `pnpm test server/codex-process.test.ts`
 
 Expected: PASS with `1 passed`.
 
@@ -608,7 +608,7 @@ describe('CodexGateway', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- server/codex-adapter.test.ts`
+Run: `pnpm test server/codex-adapter.test.ts`
 
 Expected: FAIL with missing module or missing export.
 
@@ -925,7 +925,7 @@ export class CodexAdapter extends EventEmitter {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `npm test -- server/codex-gateway.test.ts server/codex-adapter.test.ts`
+Run: `pnpm test server/codex-gateway.test.ts server/codex-adapter.test.ts`
 
 Expected: PASS with both files green.
 
@@ -1009,7 +1009,7 @@ describe('createAppServer', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- server/codex-session.test.ts`
+Run: `pnpm test server/codex-session.test.ts`
 
 Expected: FAIL with missing module or missing export.
 
@@ -1269,7 +1269,7 @@ app.listen(43118, '127.0.0.1');
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `npm test -- server/codex-session.test.ts server/routes.test.ts`
+Run: `pnpm test server/codex-session.test.ts server/routes.test.ts`
 
 Expected: PASS with both files green.
 
@@ -1354,7 +1354,7 @@ describe('SessionClient', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- tests/frontend/chat/chat-store.test.ts`
+Run: `pnpm test tests/frontend/chat/chat-store.test.ts`
 
 Expected: FAIL with missing module or missing export.
 
@@ -1538,7 +1538,7 @@ export function createChatStore() {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `npm test -- tests/frontend/chat/session-client.test.ts tests/frontend/chat/chat-store.test.ts`
+Run: `pnpm test tests/frontend/chat/session-client.test.ts tests/frontend/chat/chat-store.test.ts`
 
 Expected: PASS with both files green.
 
@@ -1635,7 +1635,7 @@ describe('createChatPanel', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- tests/frontend/chat/ChatPanel.test.tsx tests/frontend/app/ViewerApp.test.tsx`
+Run: `pnpm test tests/frontend/chat/ChatPanel.test.tsx tests/frontend/app/ViewerApp.test.tsx`
 
 Expected: FAIL because the chat panel markup and hooks do not exist yet.
 
@@ -1977,7 +1977,7 @@ export class ViewerApp {
 
 - [ ] **Step 4: Run tests and full verification**
 
-Run: `npm test -- tests/frontend/chat/ChatPanel.test.tsx tests/frontend/app/ViewerApp.test.tsx && npm test && npm run build`
+Run: `pnpm test tests/frontend/chat/ChatPanel.test.tsx tests/frontend/app/ViewerApp.test.tsx`, then `pnpm test`, then `pnpm build`
 
 Expected:
 - Chat panel tests PASS
@@ -2000,7 +2000,7 @@ git commit -m "feat: add codex chat panel integration"
 - 暂停 / 人工决策 / 恢复：Task 3, Task 4, Task 5, Task 6
 - 切换 STL 不清空会话：Task 4, Task 6
 - `清空会话` 仅手动触发且不清模型：Task 4, Task 6
-- 固定 `codex --sandbox danger-full-access --ask-for-approval on-request app-server` 启动：Task 2
+- 固定 `codex --sandbox danger-full-access --ask-for-approval never app-server` 启动：Task 2
 - Phase 3A 不执行 STL 修改：Task 1 prompt builder, Task 3 thread instructions
 
 ## Placeholder Scan

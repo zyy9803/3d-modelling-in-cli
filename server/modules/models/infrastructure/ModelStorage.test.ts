@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { validateGeneratedModel } from './model-storage.js';
+import { validateGeneratedModel } from './ModelStorage.js';
 
 describe('validateGeneratedModel', () => {
   it('rejects missing files', async () => {

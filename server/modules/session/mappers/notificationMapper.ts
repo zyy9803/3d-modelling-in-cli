@@ -1,4 +1,4 @@
 export {
   mapThreadStatus,
   normalizeServerNotification,
-} from './codex-adapter.js';
+} from './codexAdapter.js';

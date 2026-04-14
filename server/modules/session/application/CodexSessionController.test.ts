@@ -19,7 +19,7 @@ import type {
   TurnStartResponse,
   TurnSteerParams,
   TurnSteerResponse,
-} from '../../codex-runtime/protocol/codex-app-server-protocol.js';
+} from '../../codexRuntime/protocol/CodexAppServerProtocol.js';
 
 type GatewayHandlers = {
   onConnectionStatusChange: (
@@ -61,7 +61,7 @@ const mockState = vi.hoisted(() => ({
   processes: [] as ProcessSpy[],
 }));
 
-vi.mock('../../codex-runtime/infrastructure/codex-gateway.js', () => {
+vi.mock('../../codexRuntime/infrastructure/CodexGateway.js', () => {
   class FakeCodexGateway {
     public readonly startThreadCalls: ThreadStartParams[] = [];
     public readonly startTurnCalls: TurnStartParams[] = [];
@@ -137,7 +137,7 @@ vi.mock('../../codex-runtime/infrastructure/codex-gateway.js', () => {
   };
 });
 
-vi.mock('../../codex-runtime/infrastructure/codex-process.js', () => {
+vi.mock('../../codexRuntime/infrastructure/CodexProcessManager.js', () => {
   class FakeCodexProcessManager {
     public readonly listenUrl: string;
     private stopping = false;
@@ -170,7 +170,10 @@ vi.mock('../../codex-runtime/infrastructure/codex-process.js', () => {
   };
 });
 
-import { CodexSessionController } from './session-service.js';
+import {
+  CodexSessionController,
+  getDraftScriptCommandCandidates,
+} from './CodexSessionController.js';
 
 describe('CodexSessionController', () => {
   beforeEach(() => {
@@ -181,6 +184,20 @@ describe('CodexSessionController', () => {
   afterEach(() => {
     mockState.gateways.length = 0;
     mockState.processes.length = 0;
+  });
+
+  it('builds Windows Python candidates in priority order', () => {
+    expect(getDraftScriptCommandCandidates('win32', ['--flag'])).toEqual([
+      { command: 'py', args: ['-3', 'edit.py', '--flag'] },
+      { command: 'python', args: ['edit.py', '--flag'] },
+    ]);
+  });
+
+  it('builds macOS Python candidates in priority order', () => {
+    expect(getDraftScriptCommandCandidates('darwin', ['--flag'])).toEqual([
+      { command: 'python3', args: ['edit.py', '--flag'] },
+      { command: 'python', args: ['edit.py', '--flag'] },
+    ]);
   });
 
   it('creates a draft job on submitMessage and sends draft-only prompt context', async () => {

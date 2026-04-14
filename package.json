@@ -3,12 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "dev": "concurrently -k \"npm run dev:client\" \"npm run dev:server\"",
-    "dev:client": "vite",
+    "dev": "tsx scripts/dev.ts",
+    "dev:preflight": "tsx server/ensureDevPortsAvailable.ts",
+    "dev:client": "vite --strictPort --port 5173",
     "dev:server": "tsx watch --tsconfig tsconfig.server.json server/index.ts",
-    "build": "npm run build:client && npm run build:server",
-    "build:client": "tsc --noEmit && vite build",
+    "build": "tsx scripts/build.ts",
+    "build:client": "tsx scripts/buildClient.ts",
     "build:server": "tsc -p tsconfig.server.json",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"

@@ -2,8 +2,8 @@ import type {
   SessionImportModelRequest,
   SessionImportModelResponse,
 } from '../../../../src/shared/codex-session-types.js';
-import type { ModelStorage } from '../infrastructure/model-storage.js';
-import type { ModelRecord, ModelRegistry } from '../infrastructure/model-registry.js';
+import type { ModelStorage } from '../infrastructure/ModelStorage.js';
+import type { ModelRecord, ModelRegistry } from '../infrastructure/ModelRegistry.js';
 
 export type ModelCatalogService = {
   importModel(

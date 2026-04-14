@@ -15,7 +15,7 @@ import type {
   TurnSteerResponse,
   TurnStartParams,
   TurnStartResponse,
-} from '../protocol/codex-app-server-protocol.js';
+} from '../protocol/CodexAppServerProtocol.js';
 
 type ConnectionStatus = 'starting' | 'connected' | 'disconnected' | 'failed';
 

@@ -101,7 +101,7 @@ describe('selection-manager', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- tests/frontend/viewer/mesh-topology.test.ts tests/frontend/viewer/selection-manager.test.ts`
+Run: `pnpm test tests/frontend/viewer/mesh-topology.test.ts tests/frontend/viewer/selection-manager.test.ts`
 
 Expected: FAIL because the new modules do not exist yet
 
@@ -145,7 +145,7 @@ export function clearSelection(): Set<number> {
 
 - [ ] **Step 4: 运行测试并确认通过**
 
-Run: `npm test -- tests/frontend/viewer/mesh-topology.test.ts tests/frontend/viewer/selection-manager.test.ts`
+Run: `pnpm test tests/frontend/viewer/mesh-topology.test.ts tests/frontend/viewer/selection-manager.test.ts`
 
 Expected: PASS, all tests green
 
@@ -208,7 +208,7 @@ describe('createSelectionContext', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- tests/frontend/viewer/selection-context.test.ts`
+Run: `pnpm test tests/frontend/viewer/selection-context.test.ts`
 
 Expected: FAIL because the context builder does not exist yet
 
@@ -234,7 +234,7 @@ export function createSelectionContext(input: {
 
 - [ ] **Step 4: 运行测试并确认通过**
 
-Run: `npm test -- tests/frontend/viewer/selection-context.test.ts`
+Run: `pnpm test tests/frontend/viewer/selection-context.test.ts`
 
 Expected: PASS
 
@@ -280,7 +280,7 @@ describe('ViewerApp phase 2', () => {
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `npm test -- tests/frontend/app/ViewerApp.test.tsx`
+Run: `pnpm test tests/frontend/app/ViewerApp.test.tsx`
 
 Expected: FAIL because the new buttons and status bar are not rendered yet
 
@@ -307,11 +307,11 @@ Expected: FAIL because the new buttons and status bar are not rendered yet
 
 - [ ] **Step 4: 运行 focused verification**
 
-Run: `npm test -- tests/frontend/app/ViewerApp.test.tsx`
+Run: `pnpm test tests/frontend/app/ViewerApp.test.tsx`
 
 Expected: PASS
 
-Run: `npm test`
+Run: `pnpm test`
 
 Expected: all test files pass
 
@@ -337,17 +337,17 @@ git commit -m "feat: add triangle selection workflow"
 
 - [ ] **Step 2: 运行完整验证**
 
-Run: `npm test`
+Run: `pnpm test`
 
 Expected: all tests pass
 
-Run: `npm run build`
+Run: `pnpm build`
 
 Expected: build succeeds with exit code `0`
 
 - [ ] **Step 3: 手工验证**
 
-Run: `npm run dev -- --host 127.0.0.1 --port 4173`
+Run: `pnpm dev`
 
 Verify manually:
 - click one triangle and observe highlight

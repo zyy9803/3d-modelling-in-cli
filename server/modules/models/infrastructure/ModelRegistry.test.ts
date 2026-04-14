@@ -2,7 +2,7 @@ import { join, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { createModelRegistry } from './model-registry.js';
+import { createModelRegistry } from './ModelRegistry.js';
 
 describe('createModelRegistry', () => {
   it('registers imported and derived models with stable ids and storage paths', () => {

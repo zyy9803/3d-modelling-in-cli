@@ -3,7 +3,7 @@ import type {
   DraftJobRecord,
   EditJobFactory,
   ExecutionJobRecord,
-} from '../infrastructure/edit-job-workspace.js';
+} from '../infrastructure/editJobWorkspace.js';
 
 export type EditJobService = {
   createDraft(input: DraftJobInput): Promise<DraftJobRecord>;

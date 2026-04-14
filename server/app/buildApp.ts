@@ -1,6 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 
-import { CodexSessionController } from '../modules/session/application/session-service.js';
+import { CodexSessionController } from '../modules/session/application/CodexSessionController.js';
 import {
   registerAppContext,
   type SessionControllerLike,

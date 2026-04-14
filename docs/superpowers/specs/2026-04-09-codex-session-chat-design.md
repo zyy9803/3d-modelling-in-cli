@@ -61,7 +61,7 @@
 本地 server 启动 Codex 时固定使用以下命令：
 
 ```bash
-codex --sandbox danger-full-access --ask-for-approval on-request app-server --listen ws://127.0.0.1:<PORT>
+codex --sandbox danger-full-access --ask-for-approval never app-server --listen ws://127.0.0.1:<PORT>
 ```
 
 要求如下：

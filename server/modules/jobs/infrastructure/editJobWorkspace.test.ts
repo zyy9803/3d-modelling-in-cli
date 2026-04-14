@@ -4,8 +4,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { createModelRegistry } from '../../models/infrastructure/model-registry.js';
-import { createEditJobFactory } from './edit-job-workspace.js';
+import { createModelRegistry } from '../../models/infrastructure/ModelRegistry.js';
+import { createEditJobFactory } from './editJobWorkspace.js';
 
 describe('createEditJobFactory', () => {
   it('creates a draft workspace and prepares execution context', async () => {
